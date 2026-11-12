@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import PageToolbar from '../../components/layout/PageToolbar';
 import { purchaseOrderAPI, circleAPI, clusterAPI } from '../../utils/api';
 import { useToastContext } from '../../contexts/ToastContext.jsx';
@@ -11,6 +11,7 @@ import { useDialog } from '../../contexts/DialogContext.jsx';
 import { formatDate } from '../../utils/date';
 
 const PurchaseOrderManagementPage = () => {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const { add } = useToastContext() || { add: () => {} };
   const { user } = useAuth();
@@ -140,9 +141,13 @@ const PurchaseOrderManagementPage = () => {
         const err = await res.json();
         throw new Error(err.message || 'Action failed');
       }
+      if (action === 'issue') {
+        add('Purchase Order issued', 'success');
+        navigate(`/procurement/po/po-details/${id}`, { state: { showPoPrintPreview: true } });
+        return;
+      }
       await fetchPOs();
       if (action === 'submit') add('Purchase Order submitted', 'success');
-      if (action === 'issue') add('Purchase Order issued', 'success');
     } catch (e) {
       setError(e.message);
       add(e.message || 'Action failed', 'error');

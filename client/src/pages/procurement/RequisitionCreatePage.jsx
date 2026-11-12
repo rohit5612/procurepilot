@@ -124,13 +124,63 @@ const RequisitionCreatePage = () => {
     }));
   };
 
-  const handleLineChange = (index, field, value) => {
-    setFormData(prev => ({
+  const handleCircleChange = (circleId) => {
+    setFormData((prev) => ({
       ...prev,
-      lines: prev.lines.map((line, i) => 
-        i === index ? { ...line, [field]: value } : line
-      )
+      circle_id: circleId,
+      cluster_id: null
     }));
+  };
+
+  const handleClusterChange = (clusterId) => {
+    setFormData((prev) => ({ ...prev, cluster_id: clusterId }));
+  };
+
+  const handleSiteSelect = (siteRow) => {
+    setFormData((prev) => ({
+      ...prev,
+      site_id: siteRow?.site_id != null ? String(siteRow.site_id) : '',
+      circle_id: siteRow?.circle_id ?? null,
+      cluster_id: siteRow?.cluster_id ?? null
+    }));
+  };
+
+  const applyReferencePriceToLine = async (index, itemId, quantity) => {
+    if (!itemId) return;
+    try {
+      const res = await requisitionAPI.getReferenceUnitPrice(itemId, quantity || 1);
+      if (!res.ok) return;
+      const json = await res.json();
+      const unitPrice = Number(json?.data?.unit_price || 0);
+      if (unitPrice > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          lines: prev.lines.map((line, i) =>
+            i === index ? { ...line, unit_price: unitPrice, price_from_master: true } : line
+          )
+        }));
+      }
+    } catch (_) {
+      /* preview optional */
+    }
+  };
+
+  const handleLineChange = async (index, field, value) => {
+    let priceRefresh = null;
+    setFormData((prev) => {
+      const lines = prev.lines.map((line, i) => (i === index ? { ...line, [field]: value } : line));
+      const updated = lines[index];
+      if (field === 'quantity' && updated?.item_id && updated?.isFromItemMaster) {
+        priceRefresh = {
+          itemId: updated.item_id,
+          qty: Math.max(parseFloat(value) || 0, 0.01)
+        };
+      }
+      return { ...prev, lines };
+    });
+    if (priceRefresh) {
+      await applyReferencePriceToLine(index, priceRefresh.itemId, priceRefresh.qty);
+    }
   };
 
   const addManualLine = () => {
@@ -157,7 +207,19 @@ const RequisitionCreatePage = () => {
     }));
   };
 
-  const selectItem = (item) => {
+  const selectItem = async (item) => {
+    let unitPrice = Number(item.estimated_price || item.standard_cost || 0);
+  try {
+      const res = await requisitionAPI.getReferenceUnitPrice(item.id, 1);
+      if (res.ok) {
+        const json = await res.json();
+        const ref = Number(json?.data?.unit_price || 0);
+        if (ref > 0) unitPrice = ref;
+      }
+    } catch (_) {
+      /* use fallback */
+    }
+
     const newLine = {
       item_id: item.id,
       item_code: item.item_code,
@@ -169,20 +231,32 @@ const RequisitionCreatePage = () => {
       model: item.model || '',
       quantity: 1,
       unit_of_measure: item.unit_of_measure || 'PCS',
-      unit_price: item.estimated_price || item.standard_cost || 0,
+      unit_price: unitPrice,
+      price_from_master: true,
       specifications: item.specifications || '',
       needed_by_date: formData.needed_by_date || '',
       isFromItemMaster: true
     };
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       lines: [...prev.lines, newLine]
     }));
-    
+
     setShowItemModal(false);
     setItemSearchTerm('');
   };
+
+  const linesTotalAmount = formData.lines.reduce((sum, line) => {
+    const qty = Number(line.quantity) || 0;
+    const up = Number(line.unit_price) || 0;
+    return sum + qty * up;
+  }, 0);
+
+  const formatInr = (amount) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(
+      amount || 0
+    );
 
   const removeLine = (index) => {
     setFormData(prev => ({
@@ -209,14 +283,18 @@ const RequisitionCreatePage = () => {
       setLoading(true);
       setError(null);
 
+      const linkedSite = formData.site_id
+        ? sites.find((s) => String(s.id) === String(formData.site_id))
+        : null;
+
       // Prepare data for submission - ensure proper data types
       const submissionData = {
         ...formData,
         department_id: parseInt(formData.department_id),
         site_id: formData.site_id ? parseInt(formData.site_id) : null,
         project_id: formData.project_id && formData.project_id !== '' ? formData.project_id : null,
-        circle_id: formData.circle_id ? parseInt(formData.circle_id) : null,
-        cluster_id: formData.cluster_id ? parseInt(formData.cluster_id) : null,
+        circle_id: linkedSite?.circle_id ?? (formData.circle_id ? parseInt(formData.circle_id, 10) : null),
+        cluster_id: linkedSite?.cluster_id ?? (formData.cluster_id ? parseInt(formData.cluster_id, 10) : null),
         lines: formData.lines.map(line => {
           const qty = Math.max(parseFloat(line.quantity) || 0, 0.01);
           const cleanLine = {
@@ -353,6 +431,9 @@ const RequisitionCreatePage = () => {
           departments={departments}
           sites={sites}
           handleInputChange={handleInputChange}
+          onCircleChange={handleCircleChange}
+          onClusterChange={handleClusterChange}
+          onSiteSelect={handleSiteSelect}
         />
 
         {/* Line Items */}
@@ -362,6 +443,8 @@ const RequisitionCreatePage = () => {
           removeLine={removeLine}
           addManualLine={addManualLine}
           setShowItemModal={setShowItemModal}
+          formatCurrency={formatInr}
+          totalAmount={linesTotalAmount}
         />
 
         {/* Attachment + Top Submit */}

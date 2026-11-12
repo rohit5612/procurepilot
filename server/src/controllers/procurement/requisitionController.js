@@ -568,6 +568,23 @@ class RequisitionController {
   /**
    * Search items for requisition lines
    */
+  async getReferenceUnitPrice(req, res) {
+    try {
+      const itemId = parseInt(req.params.itemId, 10);
+      if (Number.isNaN(itemId)) {
+        return res.status(400).json({ success: false, message: 'Invalid item ID' });
+      }
+      const quantity = Math.max(parseFloat(req.query.quantity) || 1, 0.01);
+      const unit_price = await requisitionService.getReferenceUnitPrice(itemId, quantity);
+      res.json({
+        success: true,
+        data: { item_id: itemId, quantity, unit_price, currency: 'INR' }
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message || 'Failed to load reference price' });
+    }
+  }
+
   async searchItems(req, res) {
     try {
       const { search } = req.query;

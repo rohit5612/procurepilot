@@ -1,4 +1,5 @@
 import { query, transaction } from '../../database/connection.js';
+import roleService from '../roles/roleService.js';
 
 class DepartmentService {
   /**
@@ -333,27 +334,33 @@ class DepartmentService {
   async createDefaultRoleTemplates(client, departmentId, userId) {
     const roleTemplates = [
       {
+        name: 'department_admin',
+        displayName: 'L1 — Org admin',
+        description: 'User/role visibility and policy config; minimal procurement spend',
+        roleLevel: 1
+      },
+      {
         name: 'department_head',
-        displayName: 'Department Head',
-        description: 'Full departmental access with approval authority',
+        displayName: 'L2 — Department head',
+        description: 'Department approvals, budgets, and onboarding',
         roleLevel: 2
       },
       {
         name: 'manager',
-        displayName: 'Manager',
-        description: 'Management access with limited approval authority',
+        displayName: 'L3 — Manager',
+        description: 'Create and submit requests; no procurement approval',
         roleLevel: 3
       },
       {
         name: 'senior_user',
-        displayName: 'Senior User',
-        description: 'Advanced user access with some administrative functions',
+        displayName: 'L4 — Requester',
+        description: 'Own/team PRs under policy caps',
         roleLevel: 4
       },
       {
         name: 'basic_user',
-        displayName: 'Basic User',
-        description: 'Standard user access with view and basic create permissions',
+        displayName: 'L5 — Basic',
+        description: 'Read and limited create; lowest spend authority',
         roleLevel: 5
       }
     ];
@@ -379,8 +386,12 @@ class DepartmentService {
 
       const roleId = roleResult.rows[0].id;
 
-      // Assign permissions based on role level
-      await this.assignRolePermissions(client, roleId, departmentId, template.roleLevel);
+      await roleService.assignRolePermissionsByLevel(
+        client,
+        roleId,
+        departmentId,
+        template.roleLevel
+      );
     }
   }
 

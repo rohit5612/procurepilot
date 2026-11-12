@@ -4,6 +4,19 @@
 
 Built for the [PayPal × AI hackathon](https://devpost.com) — meaningful use of **PayPal** (Checkout) and **AI** (intake + explanations).
 
+## Live demo (Render)
+
+**URL:** [https://procurepilot-01w3.onrender.com/login](https://procurepilot-01w3.onrender.com/login)
+
+| Account | Username | Password | Use for |
+|---------|----------|----------|---------|
+| Demo manager (L3) | `demo_manager` | `Test@2025!` | **AI Buy**, offer compare, PayPal checkout → direct PO, procurement |
+| Demo viewer (L5) | `demo_viewer` | `Test@2025!` | Read-only walkthrough |
+
+The login page lists the same credentials. For a full local dataset (masters, demo suppliers), run the **demo reset** scripts in [Run locally](#run-locally) — optional on hosted Render if the database was already seeded.
+
+**Sandbox PayPal:** use **Pay with Debit or Credit Card** if your sandbox personal wallet currency does not match USD checkout, or create a USD sandbox buyer in the [PayPal Developer dashboard](https://developer.paypal.com/dashboard/accounts).
+
 ## What it does
 
 | Area | Capability |
@@ -11,7 +24,7 @@ Built for the [PayPal × AI hackathon](https://devpost.com) — meaningful use o
 | **Procurement** | Requisitions, POs, approvals, GRN tied to PO receiving |
 | **Masters** | Items, suppliers, sites (ERP-style master data) |
 | **AI Buy** | Natural-language request → structured fields → offer compare → recommendation |
-| **Policy** | Spend caps, category rules, budget reservation before checkout |
+| **Policy** | Role spend matrix (`/admin/policy`); PayPal & ledger audit (`/admin/policy/audit`); superuser treated as L1 |
 | **Pay** | PayPal JS SDK + server capture; payment events on the purchase record |
 
 Humans stay in control: AI prepares and explains choices; checkout runs only after policy allows it.
@@ -64,6 +77,22 @@ cd server && npm install && npm run db:migrate
 cd ../client && npm install
 ```
 
+### 3b. Demo masters for PR → PO → GRN (optional)
+
+After migrate, reset legacy/extract data and load a small catalog (Jaipur + Delhi sites, 3 suppliers, price lists):
+
+```bash
+cd server && npm run db:demo-reset
+cd server && npm run db:demo-rbac-reset   # one department + L1–L5 template roles
+cd server && npm run db:refresh-role-matrix # re-apply L1–L5 permission templates (L1 widest access)
+cd server && npm run db:demo-user-hygiene # drop real signups; keep only *@test.com approval fixtures
+cd server && npm run db:seed-demo-users    # demo_manager (L3) + demo_viewer (L5), password Test@2025!
+```
+
+Keeps users and RBAC; clears PR/PO/GRN, items, suppliers, and price lists, then seeds demo masters.
+
+Demo supplier/site contacts use `@mail.procurepilot.test` and `9000000xxx` numbers (display only; not sent). Keep `EMAIL_ENABLED=false` in `server/.env`. To normalize messy imports, run `scripts/set_supplier_test_contacts.sql`.
+
 ### 4. Login (bundled superuser)
 
 Migration **15** seeds a demo superuser on fresh databases (`npm run db:migrate`):
@@ -105,5 +134,5 @@ MIT — see [LICENSE](LICENSE).
 
 - [ ] Public repo with **LICENSE** in the root  
 - [ ] This README (features + **run instructions** + **tools table**)  
-- [ ] Working build (local or hosted URL)  
+- [x] Working hosted build: [ProcurePilot on Render](https://procurepilot-01w3.onrender.com/login)  
 - [ ] Demo video (&lt; 3 min, YouTube) showing AI Buy + PayPal on your device  

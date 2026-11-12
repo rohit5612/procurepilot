@@ -18,11 +18,19 @@ export async function completeChat({ system, user, temperature = 0.2 }) {
   }
 }
 
+function ollamaAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (aiConfig.ollamaApiKey) {
+    headers.Authorization = `Bearer ${aiConfig.ollamaApiKey}`;
+  }
+  return headers;
+}
+
 async function ollamaChat({ system, user, temperature, signal }) {
   const url = `${aiConfig.ollamaBaseUrl}/api/chat`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: ollamaAuthHeaders(),
     signal,
     body: JSON.stringify({
       model: aiConfig.ollamaModel,
@@ -81,19 +89,47 @@ async function openAiCompatibleChat({ system, user, temperature, signal }) {
 export async function checkLlmHealth() {
   try {
     if (aiConfig.provider === 'ollama') {
+      const isCloudHost = /ollama\.com/i.test(aiConfig.ollamaBaseUrl);
+      if (isCloudHost && !aiConfig.ollamaApiKey) {
+        return {
+          ok: false,
+          provider: 'ollama',
+          model: aiConfig.ollamaModel,
+          message: 'OLLAMA_API_KEY missing (required for Ollama Cloud)'
+        };
+      }
       const res = await fetch(`${aiConfig.ollamaBaseUrl}/api/tags`, {
-        signal: AbortSignal.timeout(5000)
+        headers: ollamaAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
       });
-      if (!res.ok) return { ok: false, provider: 'ollama', message: `HTTP ${res.status}` };
+      if (!res.ok) {
+        if (isCloudHost && aiConfig.ollamaApiKey) {
+          return {
+            ok: true,
+            provider: 'ollama',
+            host: 'cloud',
+            model: aiConfig.ollamaModel,
+            message: 'cloud key set (tags unavailable; chat will be attempted on use)'
+          };
+        }
+        return { ok: false, provider: 'ollama', message: `HTTP ${res.status}` };
+      }
       const json = await res.json();
       const models = (json.models || []).map((m) => m.name);
-      const hasModel = models.some((n) => n === aiConfig.ollamaModel || n.startsWith(`${aiConfig.ollamaModel}:`));
+      const hasModel =
+        isCloudHost ||
+        models.some((n) => n === aiConfig.ollamaModel || n.startsWith(`${aiConfig.ollamaModel}:`));
       return {
         ok: hasModel,
         provider: 'ollama',
+        host: isCloudHost ? 'cloud' : 'local',
         model: aiConfig.ollamaModel,
         models_available: models.slice(0, 10),
-        message: hasModel ? 'ready' : `Model ${aiConfig.ollamaModel} not pulled`
+        message: hasModel
+          ? isCloudHost
+            ? 'cloud ready'
+            : 'ready'
+          : `Model ${aiConfig.ollamaModel} not pulled locally`
       };
     }
     return {

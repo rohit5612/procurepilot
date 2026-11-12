@@ -5,22 +5,28 @@ import ClusterSelector from '../common/ClusterSelector';
 import { useAuth } from '../../contexts/AuthContext';
 import SiteSelectModal from '../inventory/SiteSelectModal';
 
-const RequisitionBasicInfo = ({ formData, departments, sites, handleInputChange }) => {
+const RequisitionBasicInfo = ({
+  formData,
+  departments,
+  sites,
+  handleInputChange,
+  onCircleChange,
+  onClusterChange,
+  onSiteSelect
+}) => {
   const { user } = useAuth();
   const [siteModalOpen, setSiteModalOpen] = useState(false);
   
   // Check if user can change department (only superadmin and admin)
   const canChangeDepartment = user?.isSuperuser || user?.roleLevel <= 1;
   const handleCircleChange = (value) => {
-    handleInputChange({ target: { name: 'circle_id', value } });
-    // Reset cluster when circle changes
-    if (formData.cluster_id) {
-      handleInputChange({ target: { name: 'cluster_id', value: null } });
-    }
+    if (onCircleChange) onCircleChange(value);
+    else handleInputChange({ target: { name: 'circle_id', value } });
   };
 
   const handleClusterChange = (value) => {
-    handleInputChange({ target: { name: 'cluster_id', value } });
+    if (onClusterChange) onClusterChange(value);
+    else handleInputChange({ target: { name: 'cluster_id', value } });
   };
 
   const selectedSite = useMemo(() => {
@@ -181,21 +187,18 @@ const RequisitionBasicInfo = ({ formData, departments, sites, handleInputChange 
         open={siteModalOpen}
         onClose={() => setSiteModalOpen(false)}
         onSelect={(s) => {
-          // Update site id, and optionally circle/cluster based on selected site
+          if (onSiteSelect) {
+            onSiteSelect(s);
+            return;
+          }
           handleInputChange({
             target: {
               name: 'site_id',
               value: s?.site_id ? String(s.site_id) : ''
             }
           });
-
-          if (s?.circle_id) {
-            handleCircleChange(String(s.circle_id));
-          }
-
-          if (s?.cluster_id) {
-            handleClusterChange(String(s.cluster_id));
-          }
+          if (s?.circle_id) handleCircleChange(s.circle_id);
+          if (s?.cluster_id) handleClusterChange(s.cluster_id);
         }}
       />
     </div>

@@ -415,56 +415,72 @@ class RoleService {
 
       // Define permissions based on role level with special handling for user management
       switch (roleLevel) {
-        case 1: // Admin - Limited user management access, full access to everything else
-          if (feature.name.startsWith('user_')) {
-            // User management features - limited access for admin
+        case 1: // L1 org admin — policy, users/roles, oversight (superuser maps here in UI)
+          if (feature.module_name === 'user_management') {
             switch (feature.name) {
               case 'user_directory':
-                permissions = ['read', 'update']; // Can activate/deactivate, suspend
+                permissions = ['read', 'update', 'export'].filter((p) =>
+                  feature.available_permissions.includes(p)
+                );
                 dataScope = 'all';
-                canApprove = false;
-                canExport = false;
-                canBulkAction = false;
+                canExport = true;
                 break;
               case 'user_approval':
-                permissions = ['read']; // Can view but appeals handled by superadmin
-                dataScope = 'all';
-                canApprove = false;
-                canExport = false;
-                canBulkAction = false;
-                break;
-              case 'department_management':
-              case 'role_management':
-              case 'user_assignment':
-                permissions = ['read']; // View only access
-                dataScope = 'all';
-                canApprove = false;
-                canExport = false;
-                canBulkAction = false;
-                break;
-              case 'archived_users':
-                permissions = ['read', 'update'];
-                dataScope = 'all';
-                break;
-              case 'appeals':
-                permissions = ['read', 'update', 'approve'];
-                dataScope = 'all';
-                canApprove = true;
-                break;
-              default:
-                permissions = feature.available_permissions;
+                permissions = ['read', 'approve', 'export'].filter((p) =>
+                  feature.available_permissions.includes(p)
+                );
                 dataScope = 'all';
                 canApprove = true;
                 canExport = true;
                 canBulkAction = true;
+                break;
+              case 'department_management':
+              case 'role_management':
+              case 'user_assignment':
+                permissions = ['read', 'update'].filter((p) => feature.available_permissions.includes(p));
+                dataScope = 'all';
+                canExport = true;
+                break;
+              case 'archived_users':
+                permissions = ['read', 'update'].filter((p) => feature.available_permissions.includes(p));
+                dataScope = 'all';
+                break;
+              case 'appeals':
+                permissions = ['read', 'approve', 'update'].filter((p) =>
+                  feature.available_permissions.includes(p)
+                );
+                dataScope = 'all';
+                canApprove = true;
+                break;
+              default:
+                permissions = ['read'].filter((p) => feature.available_permissions.includes(p));
+                dataScope = 'all';
             }
-          } else {
-            // Non-user management features - full admin access
-            permissions = feature.available_permissions;
+          } else if (feature.module_name === 'procurepilot') {
+            if (feature.name === 'policy_admin') {
+              permissions = feature.available_permissions.filter((p) =>
+                ['read', 'create', 'update', 'delete'].includes(p)
+              );
+            } else {
+              permissions = feature.available_permissions.filter((p) =>
+                ['read', 'create', 'submit'].includes(p)
+              );
+            }
+            dataScope = 'all';
+            canExport = true;
+          } else if (feature.module_name === 'procurement') {
+            permissions = ['read', 'approve', 'export'].filter((p) =>
+              feature.available_permissions.includes(p)
+            );
             dataScope = 'all';
             canApprove = true;
             canExport = true;
-            canBulkAction = true;
+          } else if (feature.module_name === 'inventory') {
+            permissions = ['read', 'update'].filter((p) => feature.available_permissions.includes(p));
+            dataScope = 'all';
+          } else {
+            permissions = ['read'].filter((p) => feature.available_permissions.includes(p));
+            dataScope = 'all';
           }
           break;
         
@@ -525,39 +541,35 @@ class RoleService {
           }
           break;
         
-        case 3: // Manager - Limited user management access, no approval authority
-          if (feature.name.startsWith('user_')) {
-            // User management features - very limited access
-            switch (feature.name) {
-              case 'user_directory':
-                permissions = ['read'];
-                dataScope = 'department';
-                canApprove = false;
-                canExport = false;
-                canBulkAction = false;
-                break;
-              case 'user_approval':
-                // No access to approval dashboard for managers
-                continue; // Skip this feature
-              case 'department_management':
-              case 'role_management':
-              case 'user_assignment':
-                // No access to these features for managers
-                continue; // Skip this feature
-              default:
-                permissions = feature.available_permissions.filter(p => p !== 'delete');
-                dataScope = 'department';
-                canApprove = false; // Managers cannot approve
-                canExport = true;
-                canBulkAction = false;
+        case 3: // Manager — create/submit within L3 policy caps; no approvals or admin screens
+          if (feature.module_name === 'user_management') {
+            if (feature.name === 'user_directory') {
+              permissions = ['read'];
+              dataScope = 'department';
+            } else {
+              continue;
             }
-          } else {
-            // Non-user management features - standard manager access
-            permissions = feature.available_permissions.filter(p => p !== 'delete');
+          } else if (feature.module_name === 'procurepilot') {
+            if (feature.name === 'policy_admin') {
+              permissions = ['read'];
+              dataScope = 'department';
+            } else {
+              permissions = feature.available_permissions.filter((p) =>
+                ['read', 'create', 'submit'].includes(p)
+              );
+              dataScope = 'department';
+            }
+          } else if (feature.module_name === 'procurement') {
+            permissions = ['read', 'create', 'update', 'submit'].filter((p) =>
+              feature.available_permissions.includes(p)
+            );
             dataScope = 'department';
-            canApprove = false; // Managers cannot approve
             canExport = true;
-            canBulkAction = false;
+          } else if (feature.module_name === 'inventory') {
+            permissions = ['read'].filter((p) => feature.available_permissions.includes(p));
+            dataScope = 'department';
+          } else {
+            continue;
           }
           break;
         
@@ -577,22 +589,8 @@ class RoleService {
           }
           break;
         
-        case 5: // Basic User - No user management access
-          if (feature.name.startsWith('user_')) {
-            // No access to user management features
-            continue; // Skip this feature
-          } else {
-            // Standard basic user access for other features
-            permissions = ['read'].concat(
-              feature.name === 'purchase_requisition' || feature.name === 'purchase_order' || feature.name === 'goods_receipt'
-                ? ['create'] : []
-            ).filter(p => feature.available_permissions.includes(p));
-            dataScope = 'own';
-            canApprove = false;
-            canExport = false;
-            canBulkAction = false;
-          }
-          break;
+        case 5: // L5 — observer only: no modules, gated UI + API deny create/approve
+          continue;
       }
 
       // Insert role permission

@@ -414,6 +414,8 @@ export const requisitionAPI = {
   // Requisition utilities
   getRequisitionStats: () => api.get('/api/procurement/requisitions/stats'),
   searchItems: (search) => api.get(`/api/procurement/requisitions/search/items?search=${encodeURIComponent(search)}`),
+  getReferenceUnitPrice: (itemId, quantity = 1) =>
+    api.get(`/api/procurement/requisitions/reference-price/${itemId}?quantity=${encodeURIComponent(quantity)}`),
   getVendorOptions: (id) => api.get(`/api/procurement/requisitions/${id}/vendor-options`)
 };
 
@@ -1002,6 +1004,7 @@ export const procurePilotAiBuyApi = {
   getStatus: () => api.get('/api/procurepilot/ai-buy/status'),
   getActivity: () => api.get('/api/procurepilot/ai-buy/activity'),
   extract: (text) => api.post('/api/procurepilot/ai-buy/extract', { text }),
+  previewChannel3: (request) => api.post('/api/procurepilot/ai-buy/preview-channel3', { request }),
   compare: (body) => api.post('/api/procurepilot/ai-buy/compare', body),
   submitPr: (body) => api.post('/api/procurepilot/ai-buy/submit-pr', body)
 };

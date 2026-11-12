@@ -4,13 +4,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { goodsReceiptAPI, purchaseOrderAPI, systemAPI } from '../../utils/api';
 import WorkflowStatusCard from '../../components/common/WorkflowStatusCard';
 import WorkflowTimeline from '../../components/system/WorkflowTimeline';
-import { ArrowLeft, Building, Calendar, Radio, Package, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building, Calendar, Radio, Package, Trash2, Printer } from 'lucide-react';
 import { useToastContext } from '../../contexts/ToastContext.jsx';
 import { useDialog } from '../../contexts/DialogContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions';
 import { formatDate } from '../../utils/date';
 import { useReactToPrint } from 'react-to-print';
-import GRNPrint from '../../components/inventory/GRNPrint';
+import { getGRNPrintComponent } from '../../clients/printRegistry';
 
 const GoodsReceiptDetailsPage = () => {
   const { id } = useParams();
@@ -28,7 +28,12 @@ const GoodsReceiptDetailsPage = () => {
   const [pendingTask, setPendingTask] = useState(null);
   const [taskActionLoading, setTaskActionLoading] = useState(false);
   const printRef = useRef(null);
-  const handlePrint = useReactToPrint({ contentRef: printRef });
+  const GRNPrint = getGRNPrintComponent();
+  const [showGrnPrintPreview, setShowGrnPrintPreview] = useState(false);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: grn?.grn_number ? `GRN_${grn.grn_number}` : 'Goods_Receipt'
+  });
 
   const refreshWorkflow = async () => {
     try {
@@ -233,31 +238,9 @@ const GoodsReceiptDetailsPage = () => {
           {grn.status === 'draft' && (
             <button onClick={handleDelete} className="btn btn-danger"><Trash2 size={16} className="mr-2" /> Withdraw</button>
           )}
-          <button onClick={handlePrint} className="btn btn-secondary">Print</button>
-          <button
-            onClick={async () => {
-              try {
-                const res = await goodsReceiptAPI.exportGRNXlsx(id);
-                if (!res.ok) {
-                  const err = await res.json().catch(() => ({}));
-                  throw new Error(err.message || 'Failed to download GRN Excel');
-                }
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `GRN_${grn.grn_number || id}.xlsx`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-              } catch (e) {
-                setError(e.message || 'Failed to download GRN Excel');
-              }
-            }}
-            className="btn btn-secondary"
-          >
-            Export XLSX
+          <button type="button" onClick={() => setShowGrnPrintPreview(true)} className="btn btn-secondary">
+            <Printer size={16} className="mr-2" />
+            Print / save PDF
           </button>
         </div>
       </div>
@@ -284,10 +267,40 @@ const GoodsReceiptDetailsPage = () => {
         </div>
       </div>
 
-      {/* Hidden print layout */}
-      <div style={{ position: 'absolute', left: -9999, top: -9999 }}>
-        <GRNPrint ref={printRef} grn={grn} />
-      </div>
+      {showGrnPrintPreview && grn && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-fg">Goods receipt — print preview</h2>
+                <p className="text-sm text-muted">ProcurePilot layout; print or save as PDF from your browser.</p>
+              </div>
+              <button
+                type="button"
+                className="text-muted hover:text-fg text-2xl leading-none"
+                onClick={() => setShowGrnPrintPreview(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-muted/30">
+              <div className="bg-white mx-auto shadow-sm max-w-[900px]">
+                <GRNPrint ref={printRef} grn={grn} formatDate={formatDate} />
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowGrnPrintPreview(false)}>
+                Close
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => handlePrint()}>
+                <Printer size={16} className="mr-2" />
+                Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

@@ -122,6 +122,15 @@ router.get('/requisitions/search/items',
 );
 
 /**
+ * @route   GET /api/procurement/requisitions/reference-price/:itemId
+ * @desc    Reference unit price from price lists / item master
+ */
+router.get('/requisitions/reference-price/:itemId',
+  hasPermission('procurement.purchase_requisition.create'),
+  requisitionController.getReferenceUnitPrice
+);
+
+/**
  * @route   GET /api/procurement/requisitions/:id/vendor-options
  * @desc    Get supplier options for requisition lines
  * @access  Private - procurement.purchase_order.create

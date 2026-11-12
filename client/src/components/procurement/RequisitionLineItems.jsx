@@ -2,12 +2,14 @@ import React from 'react';
 import { Package, Plus } from 'lucide-react';
 import RequisitionLineItem from './RequisitionLineItem';
 
-const RequisitionLineItems = ({ 
-  lines, 
-  handleLineChange, 
-  removeLine, 
-  addManualLine, 
-  setShowItemModal 
+const RequisitionLineItems = ({
+  lines,
+  handleLineChange,
+  removeLine,
+  addManualLine,
+  setShowItemModal,
+  formatCurrency,
+  totalAmount
 }) => {
   return (
     <div className="card">
@@ -71,8 +73,19 @@ const RequisitionLineItems = ({
                 handleLineChange={handleLineChange}
                 removeLine={removeLine}
                 isFromItemMaster={line.isFromItemMaster}
+                formatCurrency={formatCurrency}
               />
             ))}
+            {formatCurrency && (
+              <div className="flex justify-end pt-2 border-t border-border">
+                <div className="text-right">
+                  <div className="text-xs text-muted">Estimated PR total (excl. tax)</div>
+                  <div className="text-lg font-semibold text-fg">
+                    {formatCurrency(totalAmount ?? 0)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

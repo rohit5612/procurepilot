@@ -10,8 +10,21 @@ import {
   resolveEffectivePolicy
 } from './policyEngine.js';
 
+function coerceRequestApprovalFlag(value) {
+  if (value === true || value === 'true' || value === 1 || value === '1') return true;
+  return false;
+}
+
 class PolicyService {
   async getUserRoleLevel(userId) {
+    const superRes = await query(
+      `SELECT is_superuser FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId]
+    );
+    if (superRes.rows[0]?.is_superuser) {
+      return 1;
+    }
+
     const result = await query(
       `SELECT MIN(r.role_level) AS role_level
        FROM user_roles ur
@@ -229,12 +242,16 @@ class PolicyService {
       ? comparison.offers.find((o) => o.offer_id === comparison.recommended_offer_id)?.price
       : request.maximum_budget ?? request.maximumBudget;
 
+    const requestFlag = coerceRequestApprovalFlag(
+      request.requires_human_approval ?? request.requiresHumanApproval
+    );
+
     const approval = requiresHumanApproval({
       policy,
       procurementCategory: comparison.request.procurement_category,
       amount: selectedAmount,
       roleLevel,
-      requestFlag: request.requires_human_approval ?? request.requiresHumanApproval
+      requestFlag
     });
 
     return {

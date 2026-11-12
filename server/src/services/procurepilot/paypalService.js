@@ -86,7 +86,7 @@ function inrToCheckoutAmount(priceInr) {
     return { currency: 'INR', amount: inr.toFixed(2), amount_inr: inr };
   }
   const rate = Number(paypalConfig.inrToUsdRate) || 83;
-  const usd = inr / rate;
+  const usd = Math.max(inr / rate, 0.01);
   return { currency: 'USD', amount: usd.toFixed(2), amount_inr: inr };
 }
 
@@ -110,8 +110,20 @@ class PayPalService {
     const { currency, amount, amount_inr } = inrToCheckoutAmount(amountInr);
     const token = await getAccessToken();
 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const returnUrl = paypalConfig.returnUrl || `${frontendUrl}/buy?paypal=success`;
+    const cancelUrl = paypalConfig.cancelUrl || `${frontendUrl}/buy?paypal=cancelled`;
+
     const body = {
       intent: 'CAPTURE',
+      application_context: {
+        brand_name: 'ProcurePilot',
+        landing_page: 'LOGIN',
+        user_action: 'PAY_NOW',
+        shipping_preference: 'NO_SHIPPING',
+        return_url: returnUrl,
+        cancel_url: cancelUrl
+      },
       purchase_units: [
         {
           reference_id: `pp-pr-${purchaseRequestId}`,

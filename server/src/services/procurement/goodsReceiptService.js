@@ -1,13 +1,6 @@
 import { query, transaction } from '../../database/connection.js';
 import domainEventService from '../system/domainEventService.js';
 import { emitWorkflowEvent, rawQuery } from '../system/workflowService.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import ExcelJS from 'exceljs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 /** ProcurePilot: skip stock layers until inventory module is enabled (default true). */
 const SKIP_INVENTORY_ON_GRN_POST = process.env.PROCUREPILOT_GRN_SKIP_INVENTORY !== 'false';
 
@@ -469,102 +462,8 @@ class GoodsReceiptService {
     return res.rows;
   }
 
-  /**
-   * Generate a single GRN Excel file based on the GRN_Format.xlsx template.
-   */
-  async generateXlsx(grnId) {
-    const grn = await this.getById(grnId);
-
-    const workbook = new ExcelJS.Workbook();
-    const templatePath = path.resolve(
-      // __dirname is server/src/services/procurement, so ../../templates -> server/src/templates
-      __dirname,
-      '../../templates/GRN_Format.xlsx'
-    );
-    await workbook.xlsx.readFile(templatePath);
-    const sheet = workbook.worksheets[0] || workbook.getWorksheet(1);
-    if (!sheet) throw new Error('GRN template worksheet not found');
-
-    const fmtDate = (d) =>
-      d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-
-    const lines = Array.isArray(grn.lines) ? grn.lines : [];
-
-    // 1) Header mapping (use the same cell addresses as the template)
-    // Left header
-    sheet.getCell('C6').value = grn.grn_number || '';            // GRN NO.
-    sheet.getCell('C7').value = grn.supplier_code || '';         // Vendor code
-    sheet.getCell('C8').value = grn.supplier_name || '';         // Vendor name
-    sheet.getCell('C9').value = grn.po_number || '';             // VENDOR PO NO.
-    sheet.getCell('C10').value = grn.supplier_address || '';     // VENDOR ADDRESS
-
-    // Right header
-    sheet.getCell('I6').value = fmtDate(grn.created_at || grn.posted_at); // GRN DATE
-    // Treat Vendor Invoice No./Date as the associated PO no. and date as per requirement
-    sheet.getCell('I7').value = grn.po_number || '';                      // VENDOR INVOICE NO (PO No.)
-    sheet.getCell('I8').value = fmtDate(grn.po_date);                     // VENDOR INVOICE DATE (PO Date)
-    sheet.getCell('I9').value = fmtDate(grn.po_date);                     // VENDOR PO DATE
-
-    // 2) Line items: rows 13–17, columns B–K
-    const baseRow = 13;
-    const maxLines = 5;
-
-    let totalBase = 0;
-    let totalGst = 0;
-
-    for (let i = 0; i < maxLines; i++) {
-      const row = sheet.getRow(baseRow + i);
-      const l = lines[i];
-
-      if (!l) {
-        // Clear cells if no line
-        ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].forEach((col) => {
-          row.getCell(col).value = '';
-        });
-        row.commit();
-        continue;
-      }
-
-      const qty = Number(l.accepted_qty || l.received_qty || 0) || 0;
-      const basicRate = Number(l.unit_price || 0) || 0;
-      const gstRate = Number(l.gst_rate || 0) || 0;
-      const baseAmount = qty * basicRate;
-      const gstAmount = (baseAmount * gstRate) / 100;
-
-      totalBase += baseAmount;
-      totalGst += gstAmount;
-
-      row.getCell('B').value = l.company_code || ''; // COMPANY CODE
-      row.getCell('C').value = l.item_code || '';    // ITEM CODE
-      row.getCell('D').value = l.item_name || '';    // ITEM DESCRIPTION
-      row.getCell('E').value = l.hsn_code || '';     // HSN/SAC
-      row.getCell('F').value = l.unit_of_measure || ''; // UOM
-      row.getCell('G').value = qty;                  // QTY
-      row.getCell('H').value = basicRate;            // BASIC RATE
-      row.getCell('I').value = 0;                    // DISC (not modelled)
-      row.getCell('J').value = gstRate / 100;        // GST% as fraction
-      row.getCell('K').value = baseAmount;           // TOTAL (basic)
-
-      row.commit();
-    }
-
-    const grandTotal = totalBase + totalGst;
-
-    // 3) Totals
-    sheet.getCell('K19').value = totalBase;   // TOTAL BASIC
-    sheet.getCell('K20').value = 0;           // DISCOUNT
-    sheet.getCell('K21').value = totalGst;    // GST
-    sheet.getCell('K22').value = grandTotal;  // GRAND TOTAL
-
-    // 4) Remarks and warehouse address
-    sheet.getCell('A24').value = `Remarks: ${grn.remarks || ''}`;
-    sheet.getCell('A33').value = grn.warehouse_address || '';
-
-    const fileName = `GRN_${grn.grn_number || grnId}.xlsx`;
-    const buffer = await workbook.xlsx.writeBuffer();
-    const nodeBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-
-    return { buffer: nodeBuffer, fileName };
+  async generateXlsx() {
+    throw new Error('Legacy GRN Excel export removed. Use Print preview in the app.');
   }
 
   #buildListQueryParts(filters = {}, isExport = false) {

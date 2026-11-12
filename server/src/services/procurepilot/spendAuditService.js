@@ -13,7 +13,13 @@ export async function getSpendSnapshotForUser(userId) {
 
   let policy = { currency: 'INR', max_monthly_budget: null };
   let roleLevel = null;
+  let isSuperuser = false;
   try {
+    const userRes = await query(
+      `SELECT is_superuser FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId]
+    );
+    isSuperuser = !!userRes.rows[0]?.is_superuser;
     const effective = await policyService.getEffectivePolicyForUser(userId);
     policy = effective.policy;
     roleLevel = effective.roleLevel;
@@ -95,6 +101,10 @@ export async function getSpendSnapshotForUser(userId) {
   return {
     period: { year, month },
     role_level: roleLevel,
+    is_superuser: isSuperuser,
+    policy_source: policy.source || null,
+    max_per_transaction:
+      policy.max_per_transaction != null ? Number(policy.max_per_transaction) : null,
     policy_currency: policy.currency || 'INR',
     max_monthly_budget: maxMonthly,
     ledger: {

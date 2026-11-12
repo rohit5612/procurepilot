@@ -1,14 +1,14 @@
 import React, { forwardRef } from 'react';
+import { BRAND_NAME } from '../../constants/branding';
 
-// Printable PR component for VR Power Equipments (P) Ltd.
-// Expects a `requisition` object with header and lines, plus helper formatters.
+// Printable PR layout — expects `requisition` with header and lines, plus helper formatters.
 const PRPrint = forwardRef(({ requisition, getDepartmentName, getSiteName, getCircleName, getClusterName, formatDate }, ref) => {
   if (!requisition) return null;
 
   return (
     <div ref={ref} style={{ padding: '16px', fontFamily: 'Arial, sans-serif', color: '#000' }}>
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-        <div style={{ fontSize: '20px', fontWeight: 700 }}>V R POWER EQUIPMENTS (P) LTD.</div>
+        <div style={{ fontSize: '20px', fontWeight: 700 }}>{BRAND_NAME}</div>
         <div style={{ fontSize: '14px', marginTop: '8px', fontWeight: 600 }}>Purchase Requisition (PR)</div>
       </div>
 
@@ -79,28 +79,3 @@ const tdCenter = { ...td, textAlign: 'center' };
 const tdRight = { ...td, textAlign: 'right' };
 
 export default PRPrint;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -16,6 +16,7 @@ import InventoryRoutes from './routes/inventoryRoutes';
 import UserManagementRoutes from './routes/userManagementRoutes';
 import AiBuyPage from './pages/procurepilot/AiBuyPage';
 import PolicyAdminPage from './pages/procurepilot/PolicyAdminPage';
+import PolicyPayPalAuditPage from './pages/procurepilot/PolicyPayPalAuditPage';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 
@@ -118,6 +119,14 @@ const AppContent = () => {
             element={
               <PermissionGuard permission="procurepilot.policy_admin.read" minLevel={1}>
                 <PolicyAdminPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="admin/policy/audit"
+            element={
+              <PermissionGuard permission="procurepilot.policy_admin.read" minLevel={1}>
+                <PolicyPayPalAuditPage />
               </PermissionGuard>
             }
           />

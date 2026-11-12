@@ -15,6 +15,7 @@ function formatInr(v) {
  *   policyOffers: object[];
  *   recommendedOfferId?: string | null;
  *   onSelect?: (row: object) => void;
+ *   onFocus?: (row: object) => void;
  *   selectedId?: string | null;
  * }} props
  */
@@ -23,6 +24,7 @@ export default function OfferCompareGrid({
   policyOffers,
   recommendedOfferId,
   onSelect,
+  onFocus,
   selectedId
 }) {
   const { gridTheme } = useAgTheme();
@@ -45,6 +47,7 @@ export default function OfferCompareGrid({
           delivery_date: o.delivery_date,
           purchase_url: o.purchase_url,
           product_title: o.product_title,
+          image_url: o.image_url,
           source: o.source,
           delivery_verified: o.delivery_verified,
           eligible: pol?.eligible ?? false,
@@ -58,7 +61,14 @@ export default function OfferCompareGrid({
 
   const columnDefs = useMemo(
     () => [
-      { field: 'supplier_name', headerName: 'Supplier', flex: 1, minWidth: 140 },
+      {
+        field: 'product_title',
+        headerName: 'Product',
+        flex: 1.2,
+        minWidth: 160,
+        valueFormatter: (p) => p.value || '—'
+      },
+      { field: 'supplier_name', headerName: 'Retailer', flex: 1, minWidth: 120 },
       {
         field: 'price',
         headerName: 'Price',
@@ -88,10 +98,18 @@ export default function OfferCompareGrid({
       {
         field: 'status',
         headerName: 'Policy',
-        width: 110,
-        cellClass: (p) => (p.data?.eligible ? 'text-emerald-700 font-medium' : 'text-red-600 font-medium')
+        width: 100,
+        cellClass: (p) => (p.data?.eligible ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold')
       },
-      { field: 'reason', headerName: 'Reason', flex: 1.2, minWidth: 180 },
+      {
+        field: 'reason',
+        headerName: 'Why',
+        flex: 1.4,
+        minWidth: 200,
+        wrapText: true,
+        autoHeight: true,
+        cellClass: 'text-xs leading-snug'
+      },
       {
         field: 'recommended',
         headerName: 'Rank',
@@ -102,15 +120,19 @@ export default function OfferCompareGrid({
     []
   );
 
+  const gridHeight = Math.min(520, 52 + Math.max(rowData.length, 1) * 56);
+
   return (
-    <div className="w-full rounded-lg border border-border overflow-hidden" style={{ height: 280 }}>
+    <div className="w-full rounded-xl border border-border overflow-hidden" style={{ height: gridHeight }}>
       <AgGridReact
         theme={gridTheme}
         rowData={rowData}
         columnDefs={columnDefs}
         getRowId={(p) => p.data.id}
         rowSelection={{ mode: 'singleRow', enableClickSelection: true }}
+        domLayout="normal"
         onRowClicked={(e) => {
+          if (e.data && onFocus) onFocus(e.data);
           if (e.data?.eligible && onSelect) onSelect(e.data);
         }}
         getRowClass={(p) => {

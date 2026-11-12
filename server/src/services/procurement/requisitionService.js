@@ -16,11 +16,120 @@ class RequisitionService {
   /**
    * Create a new requisition
    */
+  /**
+   * Normalize circle/cluster from site and ensure cluster_id is a valid clusters.id
+   * (avoids accidental telecom circle id in cluster_id).
+   */
+  /**
+   * Lowest active purchase price from supplier_items + item_prices, else item standard/estimated cost.
+   */
+  async getReferenceUnitPrice(itemId, quantity = 1, client = null) {
+    const run = client ? client.query.bind(client) : query;
+    const qty = Math.max(Number(quantity) || 1, 0.01);
+
+    const priceRes = await run(
+      `
+      SELECT MIN(p) AS unit_price FROM (
+        SELECT si.unit_price::numeric AS p
+        FROM supplier_items si
+        WHERE si.item_id = $1
+          AND COALESCE(si.unit_price, 0) > 0
+          AND (si.valid_from IS NULL OR si.valid_from <= CURRENT_DATE)
+          AND (si.valid_to IS NULL OR si.valid_to >= CURRENT_DATE)
+        UNION ALL
+        SELECT ip.unit_price::numeric AS p
+        FROM item_prices ip
+        WHERE ip.item_id = $1
+          AND ip.price_type = 'PURCHASE'
+          AND ip.is_active = true
+          AND COALESCE(ip.unit_price, 0) > 0
+          AND (ip.valid_from IS NULL OR ip.valid_from <= CURRENT_DATE)
+          AND (ip.valid_to IS NULL OR ip.valid_to >= CURRENT_DATE)
+          AND (ip.min_quantity IS NULL OR ip.min_quantity <= $2)
+          AND (ip.max_quantity IS NULL OR ip.max_quantity >= $2)
+      ) priced
+      `,
+      [itemId, qty]
+    );
+
+    const fromMaster = Number(priceRes.rows[0]?.unit_price || 0);
+    if (fromMaster > 0) return fromMaster;
+
+    const itemRes = await run(
+      `SELECT standard_cost, last_purchase_price, estimated_price FROM items WHERE id = $1`,
+      [itemId]
+    );
+    if (itemRes.rows.length === 0) return 0;
+    const row = itemRes.rows[0];
+    for (const field of ['standard_cost', 'last_purchase_price', 'estimated_price']) {
+      const v = Number(row[field] || 0);
+      if (v > 0) return v;
+    }
+    return 0;
+  }
+
+  async resolveLineUnitPrice(line, client = null) {
+    const quantity = Math.max(parseFloat(line.quantity) || 0, 0);
+    if (line.item_id) {
+      const ref = await this.getReferenceUnitPrice(line.item_id, quantity || 1, client);
+      if (ref > 0) return ref;
+    }
+    return Math.max(parseFloat(line.unit_price) || 0, 0);
+  }
+
+  async resolveRequisitionGeo(client, data) {
+    const out = { ...data };
+
+    if (out.site_id) {
+      const siteRes = await client.query(
+        'SELECT circle_id, cluster_id FROM sites WHERE id = $1',
+        [out.site_id]
+      );
+      if (siteRes.rows.length > 0) {
+        const site = siteRes.rows[0];
+        if (site.circle_id != null) out.circle_id = site.circle_id;
+        if (site.cluster_id != null) out.cluster_id = site.cluster_id;
+      }
+    }
+
+    if (out.cluster_id != null && out.cluster_id !== '') {
+      const clusterRes = await client.query(
+        'SELECT id, circle_id FROM clusters WHERE id = $1',
+        [out.cluster_id]
+      );
+      if (clusterRes.rows.length === 0) {
+        const circleAsCluster = Number(out.cluster_id);
+        const fallback = await client.query(
+          `SELECT id FROM clusters WHERE circle_id = $1 ORDER BY code LIMIT 1`,
+          [circleAsCluster]
+        );
+        if (fallback.rows.length > 0) {
+          out.circle_id = circleAsCluster;
+          out.cluster_id = fallback.rows[0].id;
+        } else {
+          throw new Error(
+            'Invalid cluster. Re-select the cluster for your circle, or pick the site again from Search.'
+          );
+        }
+      } else {
+        const clusterCircleId = clusterRes.rows[0].circle_id;
+        if (out.circle_id != null && Number(out.circle_id) !== Number(clusterCircleId)) {
+          out.circle_id = clusterCircleId;
+        } else if (out.circle_id == null) {
+          out.circle_id = clusterCircleId;
+        }
+      }
+    }
+
+    return out;
+  }
+
   async createRequisition(requisitionData, userId) {
     try {
       const result = await transaction(async (client) => {
+        const geo = await this.resolveRequisitionGeo(client, requisitionData);
         // Generate requisition number using circle/cluster context
-        const requisitionNumber = await this.generateRequisitionNumber(client, requisitionData.circle_id || null, requisitionData.cluster_id || null);
+        const requisitionNumber = await this.generateRequisitionNumber(client, geo.circle_id || null, geo.cluster_id || null);
         
         // Insert requisition
         const requisitionQuery = `
@@ -33,15 +142,15 @@ class RequisitionService {
         
         const requisitionValues = [
           requisitionNumber,
-          requisitionData.title,
-          requisitionData.description,
-          requisitionData.requester_id,
-          requisitionData.department_id,
-          requisitionData.project_id || null,
-          requisitionData.site_id || null,
-          requisitionData.needed_by_date || null,
-          requisitionData.circle_id || null,
-          requisitionData.cluster_id || null,
+          geo.title,
+          geo.description,
+          geo.requester_id,
+          geo.department_id,
+          geo.project_id || null,
+          geo.site_id || null,
+          geo.needed_by_date || null,
+          geo.circle_id || null,
+          geo.cluster_id || null,
           userId,
           userId
         ];
@@ -62,7 +171,7 @@ class RequisitionService {
             `;
 
             const quantity = parseFloat(line.quantity) || 0;
-            const unitPrice = parseFloat(line.unit_price) || 0;
+            const unitPrice = await this.resolveLineUnitPrice(line, client);
             const totalPrice = quantity * unitPrice;
 
             const lineValues = [
@@ -88,13 +197,21 @@ class RequisitionService {
           }
         }
 
-        // Calculate totals for the new requisition
         await this.calculateRequisitionTotals(requisition.id, client);
 
-        // Return the created requisition with basic info
+        const header = await client.query(
+          `SELECT total_amount, total_quantity FROM requisitions WHERE id = $1`,
+          [requisition.id]
+        );
+        const linesRes = await client.query(
+          `SELECT * FROM requisition_lines WHERE requisition_id = $1 ORDER BY line_number`,
+          [requisition.id]
+        );
+
         return {
           ...requisition,
-          lines: requisitionData.lines || []
+          ...header.rows[0],
+          lines: linesRes.rows
         };
       });
       
@@ -533,7 +650,7 @@ class RequisitionService {
             `;
 
             const quantity = parseFloat(line.quantity) || 0;
-            const unitPrice = parseFloat(line.unit_price) || 0;
+            const unitPrice = await this.resolveLineUnitPrice(line, client);
             const totalPrice = quantity * unitPrice;
 
             const lineValues = [

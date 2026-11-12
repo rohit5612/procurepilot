@@ -8,6 +8,12 @@ import { AdvancedPermissionService } from '../permissions/advancedPermissionServ
 import redisManager, { CacheKeys, CacheTTL } from '../../config/redis.js';
 import { writeAuditLog } from '../system/auditLogWriter.js';
 
+/** Superuser (DB level 0) is exposed to clients as L1 org admin. */
+function effectiveRoleLevel(user) {
+  if (user?.is_superuser) return 1;
+  return user?.role_level ?? null;
+}
+
 class AuthService {
   /**
    * Register a new user
@@ -296,7 +302,7 @@ class AuthService {
             departmentName: user.department_name,
             roleId: user.role_id,
             roleName: user.role_name,
-            roleLevel: user.role_level,
+            roleLevel: effectiveRoleLevel(user),
             isSuperuser: user.is_superuser,
             isFullyAssigned: false, // New flag to indicate assignment status
             permissions: {
@@ -312,7 +318,7 @@ class AuthService {
             departmentName: user.department_name,
             roleId: user.role_id,
             roleName: user.role_name,
-            roleLevel: user.role_level,
+            roleLevel: effectiveRoleLevel(user),
             isFullyAssigned: false,
             permissions: {
               modules: [],
@@ -345,7 +351,7 @@ class AuthService {
         departmentName: user.department_name,
         roleId: user.role_id,
         roleName: user.role_name,
-        roleLevel: user.role_level,
+        roleLevel: effectiveRoleLevel(user),
         isFullyAssigned: true, // User has department and role assigned
         permissions
       };
@@ -396,7 +402,7 @@ class AuthService {
           departmentName: user.department_name,
           roleId: user.role_id,
           roleName: user.role_name,
-          roleLevel: user.role_level,
+          roleLevel: effectiveRoleLevel(user),
           isSuperuser: user.is_superuser,
           isFullyAssigned: true, // User has department and role assigned
           permissions
@@ -608,7 +614,7 @@ class AuthService {
         departmentName: user.department_name,
         roleId: user.role_id,
         roleName: user.role_name,
-        roleLevel: user.role_level,
+        roleLevel: effectiveRoleLevel(user),
         permissions
       };
 

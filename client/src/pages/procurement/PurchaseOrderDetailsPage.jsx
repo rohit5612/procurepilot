@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { purchaseOrderAPI, inventoryAPI, circleAPI, clusterAPI, systemAPI } from '../../utils/api';
 import { approvePurchaseOrderTask, rejectPurchaseOrderTask } from '../../utils/procurementApproval';
-import { ArrowLeft, Send, CheckCircle, Truck, Calendar, Building, IndianRupee, AlertTriangle, XCircle, Workflow, Radio, Trash2, Package } from 'lucide-react';
+import { ArrowLeft, Send, CheckCircle, Truck, Calendar, Building, IndianRupee, AlertTriangle, XCircle, Workflow, Radio, Trash2, Package, FileText, Printer } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
+import { getPOPrintComponent } from '../../clients/printRegistry';
 import { usePermissions } from '../../hooks/usePermissions';
 import WorkflowTimeline from '../../components/system/WorkflowTimeline';
 import { useToastContext } from '../../contexts/ToastContext.jsx';
@@ -19,8 +21,11 @@ const PurchaseOrderDetailsPage = () => {
   const [clusters, setClusters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [emailNotification, setEmailNotification] = useState(null);
   const [isIssuing, setIsIssuing] = useState(false);
+  const [showPoPrintPreview, setShowPoPrintPreview] = useState(false);
+  const printRef = useRef(null);
+  const POPrint = getPOPrintComponent();
+  const handlePrintPo = useReactToPrint({ contentRef: printRef, documentTitle: po?.po_number ? `PO_${po.po_number}` : 'Purchase_Order' });
   const [workflowInstance, setWorkflowInstance] = useState(null);
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [pendingTasks, setPendingTasks] = useState([]);
@@ -31,26 +36,7 @@ const PurchaseOrderDetailsPage = () => {
   const { add } = useToastContext() || { add: () => {} };
   const { open } = useDialog() || { open: () => {} };
 
-  const handleDownloadPdf = async () => {
-    try {
-      const res = await purchaseOrderAPI.exportPOPdf(id);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to download PO PDF');
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `PO_${po?.po_number || id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e.message || 'Failed to download PO PDF');
-    }
-  };
+  const openPrintPreview = () => setShowPoPrintPreview(true);
 
   const fetchSites = async () => {
     try {
@@ -110,6 +96,16 @@ const PurchaseOrderDetailsPage = () => {
     return cluster ? cluster.name : 'N/A';
   };
 
+  const poForPrint = useMemo(() => {
+    if (!po) return null;
+    return {
+      ...po,
+      circle_name: po.circle_name || (po.circle_id ? getCircleName(po.circle_id) : undefined),
+      cluster_name: po.cluster_name || (po.cluster_id ? getClusterName(po.cluster_id) : undefined),
+      po_date: po.issued_at || po.po_date
+    };
+  }, [po, circles, clusters]);
+
   const fetchPO = async () => {
     try {
       setLoading(true);
@@ -130,40 +126,11 @@ const PurchaseOrderDetailsPage = () => {
 
   const handleAction = async (action) => {
     try {
-      setEmailNotification(null); // Clear previous notifications
       let res;
       if (action === 'submit') res = await purchaseOrderAPI.submitPO(id);
       else if (action === 'issue') {
-        setIsIssuing(true); // Show loading spinner
+        setIsIssuing(true);
         res = await purchaseOrderAPI.issuePO(id);
-        if (res.ok) {
-          const data = await res.json();
-          const issueData = data?.data || data;
-          
-          // Show email notification
-          if (issueData.email_sent) {
-            setEmailNotification({
-              type: 'success',
-              message: `PO issued successfully! ✉️ Email sent to supplier at ${issueData.supplier_email}`,
-              icon: '✅'
-            });
-          } else if (issueData.supplier_email) {
-            setEmailNotification({
-              type: 'warning',
-              message: `PO issued successfully, but email failed to send to ${issueData.supplier_email}. ${issueData.email_error || 'Please notify supplier manually.'}`,
-              icon: '⚠️'
-            });
-          } else {
-            setEmailNotification({
-              type: 'info',
-              message: 'PO issued successfully. Supplier has no email address on record - please notify them manually.',
-              icon: 'ℹ️'
-            });
-          }
-          
-          // Auto-hide notification after 10 seconds
-          setTimeout(() => setEmailNotification(null), 10000);
-        }
         setIsIssuing(false);
       }
       else if (action === 'withdraw') {
@@ -182,11 +149,13 @@ const PurchaseOrderDetailsPage = () => {
       }
       await fetchPO();
       if (action === 'submit') { add('PO submitted', 'success'); open('Submitted', `PO #${id} submitted successfully.`); }
-      if (action === 'issue') { add('PO issued', 'success'); open('Issued', `PO #${id} issued successfully.`); }
+      if (action === 'issue') {
+        add('PO issued', 'success');
+        setShowPoPrintPreview(true);
+      }
       if (action === 'withdraw') { add('PO withdrawn', 'success'); open('Withdrawn', `PO #${id} withdrawn.`); }
     } catch (e) {
       setError(e.message);
-      setEmailNotification(null);
       setIsIssuing(false);
     }
   };
@@ -201,6 +170,13 @@ const PurchaseOrderDetailsPage = () => {
     fetchPO();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (location.state?.showPoPrintPreview && po && (po.status === 'issued' || po.status === 'closed')) {
+      setShowPoPrintPreview(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [po?.status, location.state, location.pathname, navigate, po]);
 
   useEffect(() => {
     if (po?.workflow_instance_id) {
@@ -404,7 +380,7 @@ const PurchaseOrderDetailsPage = () => {
               {isIssuing ? (
                 <>
                   <div className="spinner w-4 h-4 mr-2 inline-block"></div>
-                  <span>Issuing & Sending Email...</span>
+                  <span>Issuing…</span>
                 </>
               ) : (
                 <>
@@ -419,54 +395,14 @@ const PurchaseOrderDetailsPage = () => {
               <Trash2 size={16} className="mr-2" /> Withdraw
             </button>
           )}
-          <button onClick={handleDownloadPdf} className="btn btn-secondary btn-sm">
-            Export PDF
-          </button>
+          {(po.status === 'issued' || po.status === 'closed') && (
+            <button type="button" onClick={openPrintPreview} className="btn btn-secondary btn-sm">
+              <Printer size={16} className="mr-2" />
+              Print / save PDF
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Email Notification Badge */}
-      {emailNotification && (
-        <div className={`card border-l-4 ${
-          emailNotification.type === 'success' ? 'border-green-500 bg-green-50' : 
-          emailNotification.type === 'warning' ? 'border-yellow-500 bg-yellow-50' : 
-          'border-blue-500 bg-blue-50'
-        }`}>
-          <div className="card-body">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3 flex-1">
-                <span className="text-2xl">{emailNotification.icon}</span>
-                <div className="flex-1">
-                  <h4 className={`font-semibold mb-1 ${
-                    emailNotification.type === 'success' ? 'text-green-800' : 
-                    emailNotification.type === 'warning' ? 'text-yellow-800' : 
-                    'text-blue-800'
-                  }`}>
-                    Email Notification
-                  </h4>
-                  <p className={`text-sm ${
-                    emailNotification.type === 'success' ? 'text-green-700' : 
-                    emailNotification.type === 'warning' ? 'text-yellow-700' : 
-                    'text-blue-700'
-                  }`}>
-                    {emailNotification.message}
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setEmailNotification(null)}
-                className={`text-xl hover:opacity-70 ${
-                  emailNotification.type === 'success' ? 'text-green-600' : 
-                  emailNotification.type === 'warning' ? 'text-yellow-600' : 
-                  'text-blue-600'
-                }`}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="card">
         <div className="card-body">
@@ -826,7 +762,7 @@ const PurchaseOrderDetailsPage = () => {
                   {isIssuing ? (
                     <>
                       <div className="spinner w-4 h-4 mr-2 inline-block"></div>
-                      <span>Issuing & Sending Email...</span>
+                      <span>Issuing…</span>
                     </>
                   ) : (
                     <>
@@ -844,6 +780,50 @@ const PurchaseOrderDetailsPage = () => {
           </div>
         </div>
       </div>
+      {showPoPrintPreview && poForPrint && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-fg">Purchase order — supplier copy</h2>
+                <p className="text-sm text-muted">
+                  Review the PO format below. No email is sent to the supplier; print or save from your browser.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="text-muted hover:text-fg text-2xl leading-none"
+                onClick={() => setShowPoPrintPreview(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-muted/30">
+              <div className="bg-white mx-auto shadow-sm max-w-[900px]">
+                <POPrint
+                  ref={printRef}
+                  po={poForPrint}
+                  getSiteName={getSiteName}
+                  getCircleName={getCircleName}
+                  getClusterName={getClusterName}
+                  formatDate={formatDate}
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowPoPrintPreview(false)}>
+                Close
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => handlePrintPo()}>
+                <Printer size={16} className="mr-2" />
+                Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reject Modal */}
       {showReject && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">

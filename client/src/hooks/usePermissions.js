@@ -73,7 +73,9 @@ export const usePermissions = () => {
   };
 
   const getRoleLevel = () => {
-    return user?.roleLevel || 99; // 99 = lowest priority if no role
+    // Superuser (DB level 0) is treated as L1 for policy / org-admin UX
+    if (user?.isSuperuser) return 1;
+    return user?.roleLevel ?? 99;
   };
 
   const isAtLeastLevel = (requiredLevel) => {

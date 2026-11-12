@@ -2,7 +2,26 @@ import { useState, useEffect } from 'react';
 
 import { Link, useNavigate } from 'react-router-dom';
 
-import { Eye, EyeOff, Loader2, Lock, Sparkles, User } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Lock, Sparkles, User, ClipboardCopy } from 'lucide-react';
+
+const DEMO_ACCOUNTS = [
+  {
+    id: 'manager',
+    role: 'Manager (L3)',
+    detail: 'AI Buy, procurement, PayPal checkout path',
+    username: 'demo_manager',
+    password: 'Test@2025!'
+  },
+  {
+    id: 'viewer',
+    role: 'Viewer (L5)',
+    detail: 'Read-only demo user',
+    username: 'demo_viewer',
+    password: 'Test@2025!'
+  }
+];
+
+const LIVE_DEMO_URL = 'https://procurepilot-01w3.onrender.com/login';
 
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -45,6 +64,12 @@ export default function LoginForm() {
   }, [authError]);
 
 
+
+  const applyDemo = (account) => {
+    setCredentials({ username: account.username, password: account.password });
+    setError('');
+    clearError();
+  };
 
   const handleChange = (e) => {
 
@@ -129,6 +154,41 @@ export default function LoginForm() {
         }
 
       >
+
+        <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 space-y-3 text-sm">
+          <p className="font-medium text-fg">Hackathon / demo access</p>
+          <p className="text-xs text-muted leading-relaxed">
+            Try the hosted build at{' '}
+            <a href={LIVE_DEMO_URL} className="text-primary underline font-medium">
+              procurepilot-01w3.onrender.com
+            </a>
+            . Use one of the test accounts below (password for both: <code className="text-xs">Test@2025!</code>).
+          </p>
+          <ul className="space-y-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <li
+                key={account.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card/80 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-fg text-xs">{account.role}</p>
+                  <p className="text-[11px] text-muted">{account.detail}</p>
+                  <p className="text-[11px] text-muted font-mono mt-0.5">
+                    {account.username} / {account.password}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost text-xs py-1.5 px-2 shrink-0 gap-1"
+                  onClick={() => applyDemo(account)}
+                >
+                  <ClipboardCopy className="h-3.5 w-3.5" aria-hidden />
+                  Use
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <form className="space-y-5" onSubmit={handleSubmit} noValidate>
 

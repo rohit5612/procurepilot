@@ -437,7 +437,7 @@ class EmailService {
       return true; // Return success to not break the flow
     }
 
-    const subject = 'Release of New Purchase Order From VR Power Equipment Pvt. Ltd.';
+    const subject = 'Release of New Purchase Order From ProcurePilot';
     const html = this.getPurchaseOrderEmailTemplate(poDetails);
 
     const templatesDir = path.resolve(__dirname, '../../templates');
@@ -500,7 +500,7 @@ class EmailService {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Release of New Purchase Order From VR Power Equipment Pvt. Ltd.</title>
+        <title>Release of New Purchase Order From ProcurePilot</title>
       </head>
       <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #1a202c;">
         <div style="max-width: 700px; margin: 0 auto; padding: 24px;">
@@ -526,27 +526,12 @@ Amount           : Rs. ${totalAmount}
           </p>
 
           <p>
-            Please arrange to submit softcopy of invoice(s) to
-            <a href="mailto:accounts1@vrgroup.org">accounts1@vrgroup.org</a> and courier the original seal and sign
-            hard copy of invoices along with signed off PO Copy to VRP Jaipur Office.
-          </p>
-
-          <p>
-            Payments will only be made once hard copy of invoice is received at VRP Jaipur Office.
-          </p>
-
-          <p>
-            <strong>Address:</strong> VR Group - B - 25, Lohiya Colony, Nemi Nagar Extension, Vaishali Nagar,
-            Jaipur, Rajasthan – 302021
+            Please review the attached purchase order, sign and return a copy as confirmation of acceptance.
           </p>
 
           <p style="margin-top: 24px;">
             Thanks &amp; Regards<br/>
-            <strong>VR Power Equipment Pvt. Ltd.</strong>
-          </p>
-
-          <p style="margin-top: 8px;">
-            <img src="cid:footerLogo" alt="VR Group" style="max-width: 260px; height: auto;" />
+            <strong>ProcurePilot</strong>
           </p>
         </div>
       </body>

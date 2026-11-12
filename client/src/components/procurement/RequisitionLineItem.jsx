@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
 import { Package, X, IndianRupee, ChevronDown, ChevronUp } from 'lucide-react';
 
-const RequisitionLineItem = ({ 
-  line, 
-  index, 
-  handleLineChange, 
-  removeLine, 
-  isFromItemMaster = false 
+const RequisitionLineItem = ({
+  line,
+  index,
+  handleLineChange,
+  removeLine,
+  isFromItemMaster = false,
+  formatCurrency
 }) => {
+  const qty = Number(line.quantity) || 0;
+  const unitPrice = Number(line.unit_price) || 0;
+  const lineTotal = qty * unitPrice;
+  const fmt =
+    formatCurrency ||
+    ((n) =>
+      new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(
+        n || 0
+      ));
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -112,6 +122,35 @@ const RequisitionLineItem = ({
             >
               <X size={14} />
             </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3 max-w-lg">
+          <div className="form-group">
+            <label className="form-label text-xs flex items-center gap-1">
+              <IndianRupee size={12} />
+              Unit price
+              {line.price_from_master && (
+                <span className="text-[10px] text-muted font-normal">(from master)</span>
+              )}
+            </label>
+            {isFromItemMaster ? (
+              <div className="input bg-muted text-fg">{fmt(unitPrice)}</div>
+            ) : (
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={line.unit_price ?? ''}
+                onChange={(e) => handleLineChange(index, 'unit_price', e.target.value)}
+                className="input w-full"
+                placeholder="0.00"
+              />
+            )}
+          </div>
+          <div className="form-group">
+            <label className="form-label text-xs">Line total</label>
+            <div className="input bg-muted font-medium text-fg">{fmt(lineTotal)}</div>
           </div>
         </div>
 

@@ -2,6 +2,7 @@
 const RULES = [
   { match: (p) => p === '/', title: 'Home' },
   { match: (p) => p.startsWith('/buy'), title: 'AI Buy' },
+  { match: (p) => p.startsWith('/admin/policy/audit'), title: 'PayPal & ledger audit' },
   { match: (p) => p.startsWith('/admin/policy'), title: 'Policy & budgets' },
   { match: (p) => p.includes('/pr/create-requisition'), title: 'New requisition' },
   { match: (p) => p.includes('/pr/requisition-edit'), title: 'Edit requisition' },

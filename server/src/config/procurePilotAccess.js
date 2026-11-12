@@ -53,7 +53,7 @@ export const ROLE_LEVELS = [
     level: 1,
     label: 'L1 — Org admin',
     shortLabel: 'Admin',
-    policyHint: 'Full org config, user/role admin, policy overrides',
+    policyHint: 'Policy matrix, user/role admin, procurement oversight (maps from superuser)',
     canApproveByDefault: true,
     dataScopeDefault: 'all'
   },

@@ -39,7 +39,8 @@ const NAV_SECTIONS = [
     module: 'procurepilot',
     children: [
       { label: 'AI Buy', path: '/buy', permission: 'procurepilot.ai_buy.read' },
-      { label: 'Policy & budgets', path: '/admin/policy', permission: 'procurepilot.policy_admin.read', minLevel: 1 }
+      { label: 'Policy & budgets', path: '/admin/policy', permission: 'procurepilot.policy_admin.read', minLevel: 1 },
+      { label: 'PayPal & audit', path: '/admin/policy/audit', permission: 'procurepilot.policy_admin.read', minLevel: 1 }
     ]
   },
   {

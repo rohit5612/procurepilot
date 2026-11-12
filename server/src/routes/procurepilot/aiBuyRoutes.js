@@ -11,6 +11,7 @@ router.use(hasPermission('procurepilot.ai_buy.read'));
 router.get('/status', aiBuyController.status.bind(aiBuyController));
 router.get('/activity', aiBuyController.activity.bind(aiBuyController));
 router.post('/extract', aiBuyController.extract.bind(aiBuyController));
+router.post('/preview-channel3', aiBuyController.previewChannel3.bind(aiBuyController));
 router.post('/compare', aiBuyController.compare.bind(aiBuyController));
 router.post(
   '/submit-pr',

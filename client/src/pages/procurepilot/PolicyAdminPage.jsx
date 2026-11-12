@@ -5,7 +5,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PolicyOverviewTable from '../../components/procurepilot/PolicyOverviewTable';
 import PolicyEditModal from '../../components/procurepilot/PolicyEditModal';
 import PolicySimulatorModal from '../../components/procurepilot/PolicySimulatorModal';
-import PolicySpendAuditPanel from '../../components/procurepilot/PolicySpendAuditPanel';
+import PolicySectionNav from '../../components/procurepilot/PolicySectionNav';
 import { ROLE_LEVELS } from '../../utils/procurePilotAccess';
 import {
   draftToSavePayload,
@@ -137,8 +137,9 @@ export default function PolicyAdminPage() {
       : [];
 
   return (
-    <div className="max-w-6xl space-y-6">
-      <PageToolbar description="Configure spend caps, procurement segments, and approval thresholds by role level.">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
+      <PageToolbar description="Configure spend caps, procurement segments, and approval thresholds by role level (L1–L5). Superuser accounts are treated as L1 for policy access.">
+        <PolicySectionNav />
         <button
           type="button"
           className="btn btn-secondary btn-sm inline-flex items-center gap-2"
@@ -171,9 +172,9 @@ export default function PolicyAdminPage() {
               comparison — AI explains outcomes but cannot override caps, segments, or deadlines.
             </p>
             <ul className="text-xs text-muted grid sm:grid-cols-3 gap-2 pt-1">
-              <li className="page-panel px-3 py-2 border-dashed">Deterministic evaluation</li>
-              <li className="page-panel px-3 py-2 border-dashed">Audit on save</li>
-              <li className="page-panel px-3 py-2 border-dashed">Monthly ledger ready</li>
+              <li className="page-panel px-3 py-2 border-dashed">L1 = org admin matrix</li>
+              <li className="page-panel px-3 py-2 border-dashed">Enforced server-side</li>
+              <li className="page-panel px-3 py-2 border-dashed">PayPal audit → separate tab</li>
             </ul>
           </div>
         </div>
@@ -209,8 +210,6 @@ export default function PolicyAdminPage() {
       ) : (
         <PolicyOverviewTable rows={rows} onEdit={openEdit} />
       )}
-
-      <PolicySpendAuditPanel />
 
       {editLevel != null && editInitialDraft && editMeta ? (
         <PolicyEditModal

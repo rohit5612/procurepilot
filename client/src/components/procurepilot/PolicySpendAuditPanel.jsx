@@ -18,7 +18,10 @@ function formatWhen(iso) {
   return new Date(iso).toLocaleString();
 }
 
-export default function PolicySpendAuditPanel() {
+/**
+ * @param {{ variant?: 'compact' | 'full' }} props
+ */
+export default function PolicySpendAuditPanel({ variant = 'compact' }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,8 +45,28 @@ export default function PolicySpendAuditPanel() {
     load();
   }, [load]);
 
+  const paymentCount = data?.payment_events?.length || 0;
+  const commitmentCount = data?.open_commitments?.length || 0;
+
   return (
-    <div className="page-panel p-6 space-y-4">
+    <div className={`space-y-4 ${variant === 'full' ? '' : 'page-panel p-6'}`}>
+      {variant === 'full' && (
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="page-panel p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">Payment events</p>
+            <p className="text-2xl font-semibold text-fg mt-1">{paymentCount}</p>
+          </div>
+          <div className="page-panel p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">Open commitments</p>
+            <p className="text-2xl font-semibold text-fg mt-1">{commitmentCount}</p>
+          </div>
+          <div className="page-panel p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">Ledger scope</p>
+            <p className="text-sm font-medium text-fg mt-1">Org-wide (your visibility)</p>
+          </div>
+        </div>
+      )}
+      <div className={`${variant === 'full' ? 'page-panel p-6' : ''} space-y-4`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-lg font-semibold text-fg flex items-center gap-2">
           <CreditCard size={18} />
@@ -110,6 +133,7 @@ export default function PolicySpendAuditPanel() {
           </ul>
         </div>
       )}
+      </div>
     </div>
   );
 }

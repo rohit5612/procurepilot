@@ -6,6 +6,7 @@ import { extractRequirements, explainComparison } from './requirementExtraction.
 import { checkLlmHealth } from './llmClient.js';
 import paypalService from './paypalService.js';
 import requisitionService from '../procurement/requisitionService.js';
+import purchaseOrderService from '../procurement/purchaseOrderService.js';
 import { paypalConfig } from '../../config/aiConfig.js';
 import channel3Service from './channel3Service.js';
 import procurementPolicyService from '../procurement/procurementPolicyService.js';
@@ -31,14 +32,15 @@ async function ensurePurchaseRequestTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_purchase_requests_user ON purchase_requests(user_id);
     ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS offers_json JSONB;
+    ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS purchase_order_id INTEGER REFERENCES purchase_orders(id) ON DELETE SET NULL;
   `);
   tablesReady = true;
 }
 
 class AiBuyService {
-  async getStatus() {
+  async getStatus(userId = null) {
     const llm = await checkLlmHealth();
-    return {
+    const base = {
       llm,
       demo_offers: aiConfig.demoOffers,
       persist: aiConfig.persistAiBuy,
@@ -49,6 +51,25 @@ class AiBuyService {
         demo_offers_fallback: aiConfig.demoOffers
       }
     };
+    if (!userId) return base;
+    try {
+      const { roleLevel, policy } = await policyService.getEffectivePolicyForUser(userId);
+      const superRes = await query(
+        `SELECT is_superuser FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        [userId]
+      );
+      base.policy_context = {
+        role_level: roleLevel,
+        is_superuser: !!superRes.rows[0]?.is_superuser,
+        max_per_transaction: policy.max_per_transaction,
+        max_monthly_budget: policy.max_monthly_budget,
+        currency: policy.currency,
+        allowed_categories: policy.allowed_categories
+      };
+    } catch {
+      /* policy tables optional in some envs */
+    }
+    return base;
   }
 
   async extract(userId, text) {
@@ -67,11 +88,30 @@ class AiBuyService {
     return result;
   }
 
-  async compare(userId, { request, offers }) {
+  async previewChannel3(request) {
     const confirmed = request;
+    if (!confirmed?.item) {
+      return { ok: false, error: 'Item description is required to preview listings' };
+    }
+    if (!channel3Service.isEnabled()) {
+      return { ok: false, error: 'Channel3 is not enabled on this server' };
+    }
+    const c3 = await channel3Service.searchOffersForRequest(confirmed);
+    return {
+      ok: Boolean(c3.ok && c3.offers?.length),
+      offers: c3.offers || [],
+      meta: c3.meta,
+      error: c3.error || (c3.offers?.length ? null : 'No matching listings')
+    };
+  }
+
+  async compare(userId, { request, offers }) {
+    const confirmed = { ...request };
     if (!confirmed?.item) {
       return { ok: false, error: 'Confirmed request with item is required' };
     }
+    confirmed.requires_human_approval =
+      confirmed.requires_human_approval === true || confirmed.requires_human_approval === 'true';
 
     let offerSource = 'client';
     let offerMeta = null;
@@ -146,6 +186,43 @@ class AiBuyService {
       offer_meta: offerMeta,
       purchase_request_id: purchaseRequestId
     };
+  }
+
+  async #resolveDepartmentIdForPr(userId) {
+    const userRes = await query(
+      `SELECT is_superuser FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId]
+    );
+    const isSuperuser = !!userRes.rows[0]?.is_superuser;
+
+    const roleRes = await query(
+      `SELECT COALESCE(ur.department_id, r.department_id) AS department_id
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1 AND ur.is_active = true
+       ORDER BY r.role_level ASC NULLS LAST
+       LIMIT 1`,
+      [userId]
+    );
+    if (roleRes.rows[0]?.department_id) return roleRes.rows[0].department_id;
+
+    if (isSuperuser) {
+      const proc = await query(
+        `SELECT id FROM departments
+         WHERE is_active = true
+           AND (LOWER(name) = 'procurement' OR code = 'PROC')
+         ORDER BY id
+         LIMIT 1`
+      );
+      if (proc.rows[0]?.id) return proc.rows[0].id;
+
+      const anyDept = await query(
+        `SELECT id FROM departments WHERE is_active = true ORDER BY id LIMIT 1`
+      );
+      return anyDept.rows[0]?.id ?? null;
+    }
+
+    return null;
   }
 
   async #loadPurchaseRequest(userId, purchaseRequestId) {
@@ -224,7 +301,7 @@ class AiBuyService {
   }
 
   async onPayPalPaid({ userId, purchaseRequestId, actorUserId }) {
-    if (!purchaseRequestId) return;
+    if (!purchaseRequestId) return null;
     await transaction(async (client) => {
       await procurementPolicyService.commitDocument(
         client,
@@ -233,6 +310,103 @@ class AiBuyService {
         actorUserId || userId
       );
     });
+    return this.submitAsDirectPurchaseOrder(userId, { purchaseRequestId });
+  }
+
+  async #resolveDirectPoMasters() {
+    const cat = await query(
+      `SELECT id FROM transaction_categories WHERE is_active = TRUE ORDER BY sort_order NULLS LAST, id LIMIT 1`
+    );
+    const supplier = await query(
+      `SELECT id FROM suppliers WHERE status = 'ACTIVE' ORDER BY id LIMIT 1`
+    );
+    const site = await query(`SELECT id, circle_id, cluster_id FROM sites WHERE site_code = 'PP-JAI-01' LIMIT 1`);
+    const wh = await query(`SELECT id FROM warehouses WHERE warehouse_code = 'WH-JAI-01' LIMIT 1`);
+    if (!cat.rows[0]?.id) throw new Error('No active transaction category for direct PO');
+    if (!supplier.rows[0]?.id) throw new Error('No active supplier for direct PO');
+    return {
+      transaction_category_id: cat.rows[0].id,
+      supplier_id: supplier.rows[0].id,
+      site_id: site.rows[0]?.id ?? null,
+      warehouse_id: wh.rows[0]?.id ?? null,
+      circle_id: site.rows[0]?.circle_id ?? null,
+      cluster_id: site.rows[0]?.cluster_id ?? null
+    };
+  }
+
+  async submitAsDirectPurchaseOrder(userId, { purchaseRequestId }) {
+    const row = await this.#loadPurchaseRequest(userId, purchaseRequestId);
+    if (row.purchase_order_id) {
+      const existing = await purchaseOrderService.getById(row.purchase_order_id, null, userId);
+      return {
+        purchase_order_id: existing.id,
+        po_number: existing.po_number,
+        status: existing.status,
+        already_created: true
+      };
+    }
+
+    const offer = this.#getOffer(row, row.selected_offer_id);
+    const confirmed = row.confirmed_json || {};
+    const qty = Math.max(Number(confirmed.quantity) || 1, 1);
+    const unitPrice = Number(offer.price) / qty;
+    const masters = await this.#resolveDirectPoMasters();
+
+    const itemLookup = await query(
+      `SELECT id, item_code FROM items WHERE name ILIKE $1 OR item_code = 'PP-OFC-002' ORDER BY CASE WHEN item_code = 'PP-OFC-002' THEN 0 ELSE 1 END LIMIT 1`,
+      [`%${(confirmed.item || '').split(' ').slice(-2).join(' ').slice(0, 40)}%`]
+    );
+    const item = itemLookup.rows[0];
+
+    const title = `AI Buy checkout: ${confirmed.item || 'Procurement'}`.slice(0, 200);
+    const description = [
+      `PayPal checkout — offer ${offer.supplier_name}`,
+      confirmed.delivery_location ? `Ship to: ${confirmed.delivery_location}` : null,
+      row.ai_explanation ? `AI: ${String(row.ai_explanation).slice(0, 300)}` : null
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const po = await purchaseOrderService.createDirect(
+      {
+        title,
+        description,
+        supplier_id: masters.supplier_id,
+        site_id: masters.site_id,
+        warehouse_id: masters.warehouse_id,
+        circle_id: masters.circle_id,
+        cluster_id: masters.cluster_id,
+        currency: 'INR',
+        transaction_category_id: masters.transaction_category_id,
+        promised_date: confirmed.delivery_deadline || null,
+        lines: [
+          {
+            item_id: item?.id ?? null,
+            item_code: item?.item_code ?? null,
+            item_name: confirmed.item || offer.supplier_name || 'ProcurePilot line',
+            quantity: qty,
+            unit_of_measure: 'PCS',
+            unit_price: unitPrice,
+            promised_date: confirmed.delivery_deadline || null
+          }
+        ]
+      },
+      userId
+    );
+
+    await query(
+      `UPDATE purchase_requests
+       SET status = 'submitted_po', purchase_order_id = $2, updated_at = NOW()
+       WHERE id = $1`,
+      [purchaseRequestId, po.id]
+    );
+
+    return {
+      purchase_order_id: po.id,
+      po_number: po.po_number,
+      status: po.status,
+      already_created: false
+    };
   }
 
   async onPayPalCancelled({ userId, purchaseRequestId, actorUserId }) {
@@ -259,15 +433,10 @@ class AiBuyService {
     const qty = Math.max(Number(confirmed.quantity) || 1, 1);
     const unitPrice = Number(offer.price) / qty;
 
-    const deptRes = await query(
-      `SELECT r.department_id FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = $1 AND ur.is_active = true
-       ORDER BY r.role_level ASC LIMIT 1`,
-      [userId]
-    );
-    const departmentId = deptRes.rows[0]?.department_id;
-    if (!departmentId) throw new Error('No department on user role — cannot create PR');
+    const departmentId = await this.#resolveDepartmentIdForPr(userId);
+    if (!departmentId) {
+      throw new Error('No department available for PR — assign a role or ensure a Procurement department exists');
+    }
 
     const title = `AI Buy: ${confirmed.item}`.slice(0, 200);
     const description = [

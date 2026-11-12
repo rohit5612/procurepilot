@@ -28,14 +28,15 @@ class PayPalController {
       const { orderId } = req.body || {};
       if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
       const result = await paypalService.captureOrder({ userId: req.user.id, orderId });
+      let purchaseOrder = null;
       if (result.newlyPaid && result.purchaseRequestId) {
-        await aiBuyService.onPayPalPaid({
+        purchaseOrder = await aiBuyService.onPayPalPaid({
           userId: result.userId || req.user.id,
           purchaseRequestId: result.purchaseRequestId,
           actorUserId: req.user.id
         });
       }
-      res.json({ success: true, data: result });
+      res.json({ success: true, data: { ...result, purchase_order: purchaseOrder } });
     } catch (e) {
       res.status(422).json({ success: false, message: e.message });
     }

@@ -5,10 +5,18 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+function normalizeOllamaBaseUrl(raw) {
+  let url = (raw || 'http://localhost:11434').replace(/\/$/, '');
+  // llmClient calls `${base}/api/chat` — cloud docs use host https://ollama.com (not …/api).
+  if (url.endsWith('/api')) url = url.slice(0, -4);
+  return url;
+}
+
 export const aiConfig = {
   provider: (process.env.AI_PROVIDER || 'ollama').toLowerCase(),
   agentApiKey: process.env.AI_AGENT_API_KEY || '',
-  ollamaBaseUrl: (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/$/, ''),
+  ollamaBaseUrl: normalizeOllamaBaseUrl(process.env.OLLAMA_BASE_URL),
+  ollamaApiKey: process.env.OLLAMA_API_KEY || process.env.AI_AGENT_API_KEY || '',
   ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2',
   openaiCompatibleBaseUrl: (process.env.OPENAI_COMPATIBLE_BASE_URL || 'https://api.openai.com/v1').replace(
     /\/$/,

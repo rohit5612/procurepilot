@@ -1,7 +1,8 @@
 import React, { forwardRef } from 'react';
+import { BRAND_NAME } from '../../constants/branding';
 
 // Simple print-friendly Delivery Challan layout matching the provided sample
-const DeliveryChallanPrint = forwardRef(({ challan, company = { name: 'V R POWER EQUIPMENTS (P) LTD.' } }, ref) => {
+const DeliveryChallanPrint = forwardRef(({ challan, company = { name: BRAND_NAME } }, ref) => {
   const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
   return (

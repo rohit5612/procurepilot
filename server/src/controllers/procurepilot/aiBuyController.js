@@ -4,7 +4,7 @@ import { getSpendSnapshotForUser } from '../../services/procurepilot/spendAuditS
 class AiBuyController {
   async status(req, res) {
     try {
-      const data = await aiBuyService.getStatus();
+      const data = await aiBuyService.getStatus(req.user?.id);
       res.json({ success: true, data });
     } catch (e) {
       res.status(500).json({ success: false, message: e.message });
@@ -19,6 +19,19 @@ class AiBuyController {
         return res.status(422).json({ success: false, ...result });
       }
       res.json({ success: true, data: result.data, meta: { source: result.source, llm_error: result.llm_error } });
+    } catch (e) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  }
+
+  async previewChannel3(req, res) {
+    try {
+      const { request } = req.body || {};
+      const result = await aiBuyService.previewChannel3(request);
+      if (!result.ok && !result.offers?.length) {
+        return res.status(422).json({ success: false, message: result.error, data: result });
+      }
+      res.json({ success: true, data: result });
     } catch (e) {
       res.status(500).json({ success: false, message: e.message });
     }

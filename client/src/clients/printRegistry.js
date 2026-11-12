@@ -1,34 +1,17 @@
-// Simple client print registry. Later, this can switch by env or tenant.
-import PRPrintVRPower from './vr_power/PRPrint.jsx';
+import PRPrint from '../components/procurement/PRPrint.jsx';
+import POPrint from '../components/procurement/POPrint.jsx';
+import GRNPrint from '../components/inventory/GRNPrint.jsx';
 
 export function getPRPrintComponent() {
-  // Default client: VR Power Equipments
-  return PRPrintVRPower;
+  return PRPrint;
 }
 
-export default { getPRPrintComponent };
+export function getPOPrintComponent() {
+  return POPrint;
+}
 
+export function getGRNPrintComponent() {
+  return GRNPrint;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+export default { getPRPrintComponent, getPOPrintComponent, getGRNPrintComponent };

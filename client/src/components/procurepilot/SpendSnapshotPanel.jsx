@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Wallet } from 'lucide-react';
 import { procurePilotAiBuyApi } from '../../utils/api';
-
-function formatInr(v) {
-  if (v == null || v === '') return '—';
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(
-    Number(v)
-  );
-}
+import AiBuyPolicyContext from './AiBuyPolicyContext';
+import { formatInr } from './procurePilotFormat';
 
 function formatWhen(iso) {
   if (!iso) return '—';
@@ -58,25 +53,18 @@ export default function SpendSnapshotPanel({ className = '' }) {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {ledger && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <div>
-            <p className="text-muted text-xs">Spent</p>
-            <p className="font-medium">{formatInr(ledger.spent)}</p>
-          </div>
-          <div>
-            <p className="text-muted text-xs">Reserved</p>
-            <p className="font-medium">{formatInr(ledger.reserved)}</p>
-          </div>
-          <div>
-            <p className="text-muted text-xs">Remaining (cap)</p>
-            <p className="font-medium">{ledger.remaining != null ? formatInr(ledger.remaining) : '—'}</p>
-          </div>
-          <div>
-            <p className="text-muted text-xs">Monthly cap</p>
-            <p className="font-medium">{data.max_monthly_budget != null ? formatInr(data.max_monthly_budget) : '—'}</p>
-          </div>
-        </div>
+      {data && (
+        <AiBuyPolicyContext
+          className="border-0 shadow-none"
+          policy={{
+            role_level: data.role_level,
+            is_superuser: data.is_superuser,
+            max_per_transaction: data.max_per_transaction,
+            max_monthly_budget: data.max_monthly_budget
+          }}
+          ledger={ledger}
+          compact
+        />
       )}
 
       {data?.payment_events?.length > 0 && (
