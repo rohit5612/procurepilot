@@ -13,23 +13,13 @@
       "sources": [
         "../src/database/migrations/001_create_users.sql",
         "../src/database/migrations/002_create_departments.sql",
-        "../src/database/migrations/006_fix_user_schema.sql",
         "../src/database/migrations/009_update_user_registration_fields.sql",
         "../src/database/migrations/010_add_user_approval_fields.sql",
         "../src/database/migrations/011_create_user_appeals.sql",
-        "../src/database/migrations/012_add_deleted_by_to_user_roles.sql",
         "../src/database/migrations/013_add_deleted_by_to_users.sql",
         "../src/database/migrations/014_update_email_constraint.sql",
         "../src/database/migrations/015_update_username_constraint.sql",
-        "../src/database/migrations/016_increase_email_username_length.sql",
-        "../src/database/migrations/017_create_archived_users.sql",
-        "../src/database/migrations/018_fix_archive_function.sql",
-        "../src/database/migrations/019_add_user_archived_audit_action.sql",
-        "../src/database/migrations/022_fix_archive_username_null.sql",
-        "../src/database/migrations/023_fix_archive_audit_log.sql",
-        "../src/database/migrations/024_fix_archive_remove_audit_update.sql",
-        "../src/database/migrations/025_fix_archive_foreign_key.sql",
-        "../src/database/migrations/026_fix_archive_final.sql"
+        "../src/database/migrations/016_increase_email_username_length.sql"
       ]
     },
     {
@@ -38,8 +28,19 @@
       "sources": [
         "../src/database/migrations/003_create_modules.sql",
         "../src/database/migrations/004_create_roles.sql",
+        "../src/database/migrations/005_create_audit_logs.sql",
+        "../src/database/migrations/006_fix_user_schema.sql",
+        "../src/database/migrations/012_add_deleted_by_to_user_roles.sql",
         "../src/database/migrations/020_update_role_level_for_superadmin.sql",
-        "../src/database/migrations/021_allow_department_level1_roles.sql"
+        "../src/database/migrations/021_allow_department_level1_roles.sql",
+        "../src/database/migrations/017_create_archived_users.sql",
+        "../src/database/migrations/018_fix_archive_function.sql",
+        "../src/database/migrations/019_add_user_archived_audit_action.sql",
+        "../src/database/migrations/022_fix_archive_username_null.sql",
+        "../src/database/migrations/023_fix_archive_audit_log.sql",
+        "../src/database/migrations/024_fix_archive_remove_audit_update.sql",
+        "../src/database/migrations/025_fix_archive_foreign_key.sql",
+        "../src/database/migrations/026_fix_archive_final.sql"
       ]
     },
     {
