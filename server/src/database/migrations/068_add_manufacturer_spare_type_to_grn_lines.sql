@@ -1,0 +1,20 @@
+-- Migration: Add manufacturer and spare_type to grn_lines table
+-- Description: Add manufacturer and spare_type columns to grn_lines for better item tracking
+-- Date: 2025-01-16
+
+BEGIN;
+
+-- Add manufacturer and spare_type columns to grn_lines table
+ALTER TABLE grn_lines 
+ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(200),
+ADD COLUMN IF NOT EXISTS spare_type VARCHAR(100);
+
+-- Create indexes for better search performance
+CREATE INDEX IF NOT EXISTS idx_grn_lines_manufacturer ON grn_lines(manufacturer);
+CREATE INDEX IF NOT EXISTS idx_grn_lines_spare_type ON grn_lines(spare_type);
+
+-- Add comments for documentation
+COMMENT ON COLUMN grn_lines.manufacturer IS 'Manufacturer/Make of the item (e.g., KOEL, ACME, Mahindra)';
+COMMENT ON COLUMN grn_lines.spare_type IS 'Type of spare part (e.g., Valve, Gasket, Motor)';
+
+COMMIT;

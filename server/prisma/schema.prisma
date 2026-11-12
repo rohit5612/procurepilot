@@ -1,0 +1,13 @@
+// ProcurePilot — Prisma is the migration orchestrator; runtime data access remains `pg` in src/database.
+// Set DATABASE_URL (see .env.example) or run: npm run db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Intentionally minimal. Use `npx prisma db pull` after migrate to introspect if you adopt Prisma Client later.

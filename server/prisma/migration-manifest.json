@@ -1,0 +1,177 @@
+{
+  "description": "ProcurePilot consolidated schema — 10 migrations for fresh databases. Legacy ERP SQL is composed from src/database/migrations.",
+  "migrations": [
+    {
+      "folder": "20260101000001_core_auth_users",
+      "title": "Core auth, users, archives",
+      "sources": [
+        "../src/database/migrations/001_create_users.sql",
+        "../src/database/migrations/002_create_departments.sql",
+        "../src/database/migrations/006_fix_user_schema.sql",
+        "../src/database/migrations/009_update_user_registration_fields.sql",
+        "../src/database/migrations/010_add_user_approval_fields.sql",
+        "../src/database/migrations/011_create_user_appeals.sql",
+        "../src/database/migrations/012_add_deleted_by_to_user_roles.sql",
+        "../src/database/migrations/013_add_deleted_by_to_users.sql",
+        "../src/database/migrations/014_update_email_constraint.sql",
+        "../src/database/migrations/015_update_username_constraint.sql",
+        "../src/database/migrations/016_increase_email_username_length.sql",
+        "../src/database/migrations/017_create_archived_users.sql",
+        "../src/database/migrations/018_fix_archive_function.sql",
+        "../src/database/migrations/019_add_user_archived_audit_action.sql",
+        "../src/database/migrations/022_fix_archive_username_null.sql",
+        "../src/database/migrations/023_fix_archive_audit_log.sql",
+        "../src/database/migrations/024_fix_archive_remove_audit_update.sql",
+        "../src/database/migrations/025_fix_archive_foreign_key.sql",
+        "../src/database/migrations/026_fix_archive_final.sql"
+      ],
+      "preamble": "sql/preamble_extensions.sql"
+    },
+    {
+      "folder": "20260101000002_rbac_modules_roles",
+      "title": "Modules, features, roles, permissions",
+      "sources": [
+        "../src/database/migrations/003_create_modules.sql",
+        "../src/database/migrations/004_create_roles.sql",
+        "../src/database/migrations/020_update_role_level_for_superadmin.sql",
+        "../src/database/migrations/021_allow_department_level1_roles.sql"
+      ]
+    },
+    {
+      "folder": "20260101000003_geo_sites",
+      "title": "Circles, clusters, sites",
+      "sources": [
+        "../src/database/migrations/051_create_telecom_circles_and_clusters.sql",
+        "../src/database/migrations/035_create_sites_table.sql",
+        "../src/database/migrations/052_add_circle_cluster_to_sites_and_warehouses.sql",
+        "../src/database/migrations/053_alter_sites_add_circle_cluster.sql",
+        "../src/database/migrations/116_extend_sites_with_employee_power_fields.sql",
+        "../src/database/migrations/117_extend_sites_with_aom_hub_fields.sql"
+      ]
+    },
+    {
+      "folder": "20260101000004_inventory_masters",
+      "title": "Items, categories, UOM, warehouses, bins",
+      "sources": [
+        "../src/database/migrations/037_create_item_categories_table.sql",
+        "../src/database/migrations/038_create_units_of_measure_table.sql",
+        "../src/database/migrations/033_create_master_data_tables.sql",
+        "../src/database/migrations/039_update_items_table.sql",
+        "../src/database/migrations/036_create_bins_table.sql",
+        "../src/database/migrations/064_add_item_master_fields_for_csv_import.sql",
+        "../src/database/migrations/065_increase_unit_of_measure_length.sql",
+        "../src/database/migrations/066_add_csv_units_of_measure.sql"
+      ]
+    },
+    {
+      "folder": "20260101000005_suppliers_pricing",
+      "title": "Suppliers, items, price lists",
+      "sources": [
+        "../src/database/migrations/034_create_supplier_items_table.sql",
+        "../src/database/migrations/040_add_supplier_to_price_lists.sql",
+        "../src/database/migrations/054_create_supplier_region_coverage.sql",
+        "../src/database/migrations/070_enhance_price_lists_for_excel_import.sql",
+        "../src/database/migrations/071_add_applied_price_list_to_suppliers.sql",
+        "../src/database/migrations/118_update_suppliers_add_tax_fields.sql"
+      ]
+    },
+    {
+      "folder": "20260101000006_requisitions",
+      "title": "Purchase requisitions (PR)",
+      "sources": [
+        "../src/database/migrations/041_create_requisition_tables.sql",
+        "../src/database/migrations/055_alter_requisitions_project_number_varchar.sql",
+        "../src/database/migrations/067_add_manufacturer_spare_type_to_requisition_lines.sql",
+        "../src/database/migrations/094_add_pr_email_attachment.sql",
+        "../src/database/migrations/111_add_withdrawn_to_requisition_status.sql",
+        "sql/custom/006_requisition_geo_columns.sql"
+      ]
+    },
+    {
+      "folder": "20260101000007_purchase_orders",
+      "title": "Purchase orders (PO)",
+      "sources": [
+        "../src/database/migrations/044_create_purchase_order_tables.sql",
+        "../src/database/migrations/046_alter_po_status_add_closed.sql",
+        "../src/database/migrations/059_add_closed_status_to_po.sql",
+        "../src/database/migrations/060_add_receiving_status_to_po.sql",
+        "../src/database/migrations/061_add_po_generation_flag_to_requisitions.sql",
+        "../src/database/migrations/069_add_manufacturer_spare_type_to_po_lines.sql",
+        "../src/database/migrations/072_add_gst_columns_to_po_lines.sql",
+        "../src/database/migrations/112_add_withdrawn_to_po_status.sql",
+        "sql/custom/007_purchase_order_geo_columns.sql",
+        "sql/custom/009_transaction_categories_po.sql"
+      ]
+    },
+    {
+      "folder": "20260101000008_workflow_engine",
+      "title": "Workflow definitions, instances, tasks",
+      "sources": [
+        "sql/custom/008_workflow_core.sql",
+        "../src/database/migrations/056_add_entity_tracking_to_workflow_tasks.sql",
+        "../src/database/migrations/057_add_entity_tracking_to_workflow_instances.sql"
+      ]
+    },
+    {
+      "folder": "20260101000009_procurepilot_rbac_seed",
+      "title": "ProcurePilot module catalog seed",
+      "sources": [
+        "../../scripts/procurepilot_rbac_cleanup.sql"
+      ]
+    },
+    {
+      "folder": "20260101000010_policy_and_document_numbers",
+      "title": "Policy engine + standard PR/PO numbering",
+      "sources": [
+        "../src/database/migrations/119_procurepilot_policy_engine.sql",
+        "sql/custom/010_policy_role_seed.sql",
+        "sql/custom/010_document_numbering.sql"
+      ]
+    },
+    {
+      "folder": "20260101000011_grn_workflow",
+      "title": "Goods receipt notes (GRN)",
+      "sources": [
+        "../src/database/migrations/045_create_grn_and_inventory_tables.sql",
+        "sql/custom/011_grn_geo_columns.sql",
+        "../src/database/migrations/063_add_bin_to_goods_receipts.sql",
+        "../src/database/migrations/065_increase_unit_of_measure_length.sql",
+        "../src/database/migrations/068_add_manufacturer_spare_type_to_grn_lines.sql",
+        "../src/database/migrations/098_update_grn_number_generator.sql",
+        "../src/database/migrations/099_add_grn_workflow_and_permissions.sql",
+        "../src/database/migrations/113_add_withdrawn_to_grn_status.sql",
+        "sql/custom/011_grn_line_snapshots.sql",
+        "sql/custom/011_enable_goods_receipt_rbac.sql"
+      ]
+    },
+    {
+      "folder": "20260101000012_procurement_erp_extensions",
+      "title": "Procurement ERP extensions (policy commitments, RFQ, invoices, returns)",
+      "sources": [
+        "../src/database/migrations/121_procurement_erp_extensions.sql",
+        "sql/custom/012_procurement_erp_rbac.sql"
+      ]
+    },
+    {
+      "folder": "20260101000013_grn_p2p_closure",
+      "title": "GRN workflow binding and role permissions",
+      "sources": [
+        "sql/custom/013_grn_workflow_binding_and_roles.sql"
+      ]
+    },
+    {
+      "folder": "20260101000014_ai_buy_paypal",
+      "title": "AI Buy PayPal payment events",
+      "sources": [
+        "sql/custom/014_ai_buy_paypal.sql"
+      ]
+    },
+    {
+      "folder": "20260101000015_demo_superuser",
+      "title": "Bundled demo superuser",
+      "sources": [
+        "sql/custom/015_demo_superuser.sql"
+      ]
+    }
+  ]
+}

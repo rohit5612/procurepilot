@@ -1,0 +1,52 @@
+/** Route → shell header title (longest / most specific match first). */
+const RULES = [
+  { match: (p) => p === '/', title: 'Home' },
+  { match: (p) => p.startsWith('/buy'), title: 'AI Buy' },
+  { match: (p) => p.startsWith('/admin/policy'), title: 'Policy & budgets' },
+  { match: (p) => p.includes('/pr/create-requisition'), title: 'New requisition' },
+  { match: (p) => p.includes('/pr/requisition-edit'), title: 'Edit requisition' },
+  { match: (p) => p.includes('/pr/requisition-details'), title: 'Requisition details' },
+  { match: (p) => p.includes('/pr/approval-tasks'), title: 'PR approvals' },
+  { match: (p) => p.includes('/pr/requisition-list'), title: 'Purchase requisitions' },
+  { match: (p) => p.includes('/po/create-po'), title: 'Create purchase order' },
+  { match: (p) => p.includes('/po/po-edit'), title: 'Edit purchase order' },
+  { match: (p) => p.includes('/po/po-details'), title: 'Purchase order details' },
+  { match: (p) => p.includes('/po/generate-from-pr'), title: 'Generate PO from PR' },
+  { match: (p) => p.includes('/po/approval-tasks'), title: 'PO approvals' },
+  { match: (p) => p.includes('/po/po-list'), title: 'Purchase orders' },
+  { match: (p) => p.includes('/grn/create-grn'), title: 'New GRN' },
+  { match: (p) => p.includes('/grn/grn-edit'), title: 'Edit GRN' },
+  { match: (p) => p.includes('/grn/grn-details'), title: 'GRN details' },
+  { match: (p) => p.includes('/grn/approval-tasks'), title: 'GRN approvals' },
+  { match: (p) => p.includes('/grn/grn-list'), title: 'Goods receipts' },
+  { match: (p) => p.includes('/supplier/price-lists'), title: 'Price lists' },
+  { match: (p) => p.includes('/supplier/'), title: 'Suppliers' },
+  { match: (p) => p.includes('/masters/items'), title: 'Items' },
+  { match: (p) => p.includes('/masters/categories'), title: 'Categories' },
+  { match: (p) => p.includes('/masters/sites'), title: 'Sites' },
+  { match: (p) => p.includes('/masters/warehouses'), title: 'Warehouses' },
+  { match: (p) => p.includes('/masters/bins'), title: 'Bins' },
+  { match: (p) => p.includes('/masters/transaction-categories'), title: 'Transaction categories' },
+  { match: (p) => p.includes('/user-operations/user-directory'), title: 'User directory' },
+  { match: (p) => p.includes('/user-operations/user-assignment'), title: 'User assignment' },
+  { match: (p) => p.includes('/user-operations/archived-users'), title: 'Archived users' },
+  { match: (p) => p.includes('/approval-workflows/user-approval'), title: 'User approval' },
+  { match: (p) => p.includes('/approval-workflows/appeals'), title: 'Appeals' },
+  { match: (p) => p.includes('/organization/role-management'), title: 'Roles' },
+  { match: (p) => p.includes('/organization/department-management'), title: 'Departments' },
+  { match: (p) => p.startsWith('/procurement'), title: 'Procurement' },
+  { match: (p) => p.startsWith('/inventory'), title: 'Masters' },
+  { match: (p) => p.includes('/user-operations/user-directory'), title: 'User directory' },
+  { match: (p) => p.includes('/user-operations/user-assignment'), title: 'User assignment' },
+  { match: (p) => p.includes('/approval-workflows/user-approval'), title: 'User approval' },
+  { match: (p) => p.includes('/approval-workflows/archived-users'), title: 'Archived users' },
+  { match: (p) => p.includes('/approval-workflows/appeals'), title: 'Appeals' },
+  { match: (p) => p.includes('/organization/role-management'), title: 'Roles' },
+  { match: (p) => p.includes('/organization/department-management'), title: 'Departments' },
+  { match: (p) => p.startsWith('/user-management'), title: 'Administration' }
+];
+
+export function resolvePageTitle(pathname) {
+  const rule = RULES.find((r) => r.match(pathname));
+  return rule?.title ?? 'ProcurePilot';
+}

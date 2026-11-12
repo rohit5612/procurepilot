@@ -1,0 +1,11 @@
+BEGIN;
+
+ALTER TABLE stock_counts
+  ADD COLUMN IF NOT EXISTS conducted_by VARCHAR(150),
+  ADD COLUMN IF NOT EXISTS workflow_instance_id INTEGER REFERENCES workflow_instances(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS submitted_by INTEGER REFERENCES users(id);
+
+COMMIT;
+
+

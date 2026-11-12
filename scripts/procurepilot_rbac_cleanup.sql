@@ -1,0 +1,102 @@
+-- ProcurePilot RBAC cleanup: deactivate removed ERP features/modules, add ProcurePilot module.
+-- Run on database: procurepilot (pgAdmin or psql). Then flush Redis permission caches or POST /api/permissions/refresh/all.
+
+BEGIN;
+
+-- Deactivate whole modules not in ProcurePilot
+UPDATE modules
+SET is_active = false, updated_at = NOW()
+WHERE name IN ('system', 'hr', 'reports')
+  AND is_active = true;
+
+-- Deactivate procurement features we removed
+UPDATE features f
+SET is_active = false, updated_at = NOW()
+FROM modules m
+WHERE f.module_id = m.id
+  AND m.name = 'procurement'
+  AND f.name IN (
+    'goods_receipt', 'request_quotation', 'receipts',
+    'purchase_orders', 'suppliers'
+  );
+
+-- Deactivate inventory transaction / analytics features
+UPDATE features f
+SET is_active = false, updated_at = NOW()
+FROM modules m
+WHERE f.module_id = m.id
+  AND m.name = 'inventory'
+  AND f.name IN (
+    'stock_movement', 'transfer', 'issue', 'adjustment', 'stock_count',
+    'store_return_note', 'srn', 'stock_items', 'stock_control', 'stock_valuation',
+    'reorder_planning', 'demand_forecast', 'abc_analysis', 'category_management',
+    'site_management'
+  );
+
+-- Deactivate system module features (logs, registry, etc.)
+UPDATE features f
+SET is_active = false, updated_at = NOW()
+FROM modules m
+WHERE f.module_id = m.id
+  AND m.name = 'system';
+
+-- Normalize appeals feature name (legacy user_appeals)
+UPDATE features
+SET name = 'appeals',
+    display_name = 'Appeals',
+    route_path = COALESCE(route_path, '/user-management/appeals'),
+    updated_at = NOW()
+WHERE name = 'user_appeals'
+  AND module_id = (SELECT id FROM modules WHERE name = 'user_management');
+
+-- Ensure archived_users feature exists
+INSERT INTO features (
+  module_id, name, display_name, description, feature_order,
+  available_permissions, available_data_scopes, default_permissions, default_data_scope, is_active
+)
+SELECT
+  m.id, 'archived_users', 'Archived Users', 'View and restore archived accounts', 7,
+  '["read", "update"]'::jsonb, '["department", "all"]'::jsonb, '["read"]'::jsonb, 'department', true
+FROM modules m
+WHERE m.name = 'user_management'
+  AND NOT EXISTS (
+    SELECT 1 FROM features f WHERE f.module_id = m.id AND f.name = 'archived_users'
+  );
+
+-- ProcurePilot module (policy + AI buy attach to role level later)
+INSERT INTO modules (name, display_name, description, is_core, module_order, icon, color, is_active)
+SELECT 'procurepilot', 'ProcurePilot', 'AI buy and spend policy', false, 4, 'sparkles', '#7c3aed', true
+WHERE NOT EXISTS (SELECT 1 FROM modules WHERE name = 'procurepilot');
+
+INSERT INTO features (
+  module_id, name, display_name, description, feature_order,
+  available_permissions, available_data_scopes, default_permissions, default_data_scope, is_active
+)
+SELECT m.id, v.name, v.display_name, v.description, v.ord,
+  v.perms::jsonb, '["own", "department", "all"]'::jsonb, v.defaults::jsonb, 'department', true
+FROM modules m
+CROSS JOIN (VALUES
+  ('ai_buy', 'AI Buy', 'Natural-language purchase intake', 1, '["read", "create", "submit"]', '["read"]'),
+  ('policy_admin', 'Policy & budgets', 'Spend caps, budgets, category rules', 2, '["read", "create", "update", "delete"]', '["read"]')
+) AS v(name, display_name, description, ord, perms, defaults)
+WHERE m.name = 'procurepilot'
+  AND NOT EXISTS (SELECT 1 FROM features f WHERE f.module_id = m.id AND f.name = v.name);
+
+-- Grant procurepilot module to all departments that have procurement
+INSERT INTO department_modules (department_id, module_id, is_active, granted_by)
+SELECT dm.department_id, pm.id, true, 1
+FROM department_modules dm
+JOIN modules proc ON proc.id = dm.module_id AND proc.name = 'procurement'
+JOIN modules pm ON pm.name = 'procurepilot'
+WHERE dm.is_active = true
+  AND NOT EXISTS (
+    SELECT 1 FROM department_modules x
+    WHERE x.department_id = dm.department_id AND x.module_id = pm.id
+  );
+
+-- Remove role_permissions rows for inactive features (optional hygiene)
+DELETE FROM role_permissions rp
+USING features f
+WHERE rp.feature_id = f.id AND f.is_active = false;
+
+COMMIT;
