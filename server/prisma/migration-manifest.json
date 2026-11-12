@@ -1,6 +1,12 @@
 {
-  "description": "ProcurePilot consolidated schema — 10 migrations for fresh databases. Legacy ERP SQL is composed from src/database/migrations.",
+  "description": "ProcurePilot consolidated schema — composed migrations for fresh databases. Legacy ERP SQL is composed from src/database/migrations.",
   "migrations": [
+    {
+      "folder": "20260101000000_extensions",
+      "title": "PostgreSQL extensions (pgcrypto)",
+      "preamble": "sql/preamble_extensions.sql",
+      "nonTransactional": true
+    },
     {
       "folder": "20260101000001_core_auth_users",
       "title": "Core auth, users, archives",
@@ -24,8 +30,7 @@
         "../src/database/migrations/024_fix_archive_remove_audit_update.sql",
         "../src/database/migrations/025_fix_archive_foreign_key.sql",
         "../src/database/migrations/026_fix_archive_final.sql"
-      ],
-      "preamble": "sql/preamble_extensions.sql"
+      ]
     },
     {
       "folder": "20260101000002_rbac_modules_roles",
